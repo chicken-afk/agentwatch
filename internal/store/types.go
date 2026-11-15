@@ -1,5 +1,5 @@
-// Package store membangun state sesi Claude Code dari dua sumber:
-// events.jsonl (ditulis hooks ccwatch) dan transcript JSONL milik Claude Code.
+// Package store builds Claude Code session state from two sources:
+// events.jsonl (written by the ccwatch hooks) and Claude Code's own JSONL transcripts.
 package store
 
 import (
@@ -16,12 +16,12 @@ func (u *Usage) add(o Usage) {
 	u.CacheW += o.CacheW
 }
 
-// InputTotal: semua token masukan (baru + cache read + cache write).
+// InputTotal: all input tokens (new + cache read + cache write).
 func (u Usage) InputTotal() int64 { return u.In + u.CacheR + u.CacheW }
 
 type ModelStat struct {
 	Model       string
-	Roles       map[string]int // role -> jumlah pesan
+	Roles       map[string]int // role -> message count
 	Msgs        int
 	Usage       Usage
 	First, Last time.Time
@@ -29,7 +29,7 @@ type ModelStat struct {
 
 type Agent struct {
 	ID, Type, Desc string
-	ReqModel       string // model yang diminta di Agent tool (kalau ada)
+	ReqModel       string // model requested in the Agent tool (if any)
 	Models         []string
 	Status         string // running | done
 	Start, End     time.Time
@@ -56,10 +56,10 @@ func (a *Agent) Model() string {
 	return a.ReqModel
 }
 
-// point = satu pesan assistant (atau satu panggilan advisor) pada satu waktu.
+// point = one assistant message (or one advisor call) at a point in time.
 type point struct {
 	T       time.Time
-	Role    string // lead | advisor | <tipe subagent>
+	Role    string // lead | advisor | <subagent type>
 	AgentID string
 	Model   string
 	Tools   int
@@ -76,8 +76,8 @@ type FlowStep struct {
 
 type LogEntry struct {
 	T    time.Time
-	Who  string // lead | advisor | tipe subagent | sys
-	Mdl  string // model terkait (untuk warna)
+	Who  string // lead | advisor | subagent type | sys
+	Mdl  string // related model (for color)
 	Text string
 	Bad  bool
 }
@@ -85,7 +85,7 @@ type LogEntry struct {
 type AdvisorCall struct {
 	T       time.Time
 	Model   string
-	After   string // tool / konteks terakhir sebelum advisor dipanggil
+	After   string // last tool / context before the advisor was called
 	Usage   Usage
 	FromSub string
 }
@@ -99,10 +99,10 @@ type Session struct {
 	PermMode            string
 	AdvisorCfg          string
 	Advisor             []AdvisorCall
-	AgentDefs           []AgentDef // subagent terkonfigurasi (.claude/agents)
+	AgentDefs           []AgentDef // configured subagents (.claude/agents)
 	Skills              []SkillUse
-	PromptTimes         []time.Time     // waktu tiap UserPromptSubmit
-	InvokedSkills       map[string]bool // dari attachment invoked_skills di transcript (bertahan setelah compact)
+	PromptTimes         []time.Time     // time of each UserPromptSubmit
+	InvokedSkills       map[string]bool // from the invoked_skills attachment in the transcript (survives compact)
 	Prompts, Turns      int
 	LastPrompt          string
 	CurrentTool         string
@@ -140,7 +140,7 @@ func newSession(id string) *Session {
 	}
 }
 
-// agent mengembalikan Agent untuk id (prefix "agent-" diabaikan), membuatnya kalau belum ada.
+// agent returns the Agent for id (the "agent-" prefix is ignored), creating it if needed.
 func (s *Session) agent(id string) *Agent {
 	id = agentKey(id)
 	a := s.Agents[id]
@@ -156,7 +156,7 @@ func agentKey(id string) string { return strings.TrimPrefix(id, "agent-") }
 
 func (s *Session) log(t time.Time, who, mdl, text string, bad bool) {
 	s.Log = append(s.Log, LogEntry{T: t, Who: who, Mdl: mdl, Text: text, Bad: bad})
-	// event hooks & transcript dibaca dari file berbeda → jaga urutan waktu
+	// hook events & transcripts come from different files → keep time order
 	for i := len(s.Log) - 1; i > 0 && s.Log[i-1].T.After(s.Log[i].T); i-- {
 		s.Log[i-1], s.Log[i] = s.Log[i], s.Log[i-1]
 	}
@@ -177,7 +177,7 @@ func (s *Session) touch(t time.Time) {
 	}
 }
 
-// AdvisorLabel: model advisor yang dikonfigurasi, atau "advisor" kalau tidak diketahui.
+// AdvisorLabel: the configured advisor model, or "advisor" if unknown.
 func (s *Session) AdvisorLabel() string {
 	if s.AdvisorCfg != "" {
 		return s.AdvisorCfg
@@ -185,7 +185,7 @@ func (s *Session) AdvisorLabel() string {
 	return "advisor"
 }
 
-// recordUsage menambah statistik pemakaian model.
+// recordUsage adds to the model usage stats.
 func (s *Session) recordUsage(model, role string, t time.Time, u Usage) {
 	ms := s.Stats[model]
 	if ms == nil {

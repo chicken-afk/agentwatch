@@ -1,4 +1,4 @@
-// Package cli: dispatch subcommand ccwatch dan parsing flag.
+// Package cli: ccwatch subcommand dispatch and flag parsing.
 package cli
 
 import (
@@ -26,8 +26,8 @@ var commands = map[string]command{
 	"help":       func([]string) error { fmt.Println(usage); return nil },
 }
 
-// splitCommand memisahkan subcommand dari argumen. Tanpa subcommand (kosong atau
-// diawali "-") artinya `watch`; --version/-v adalah jalan pintas ke `version`.
+// splitCommand separates the subcommand from the arguments. No subcommand (empty or
+// starting with "-") means `watch`; --version/-v is a shortcut for `version`.
 func splitCommand(args []string) (string, []string) {
 	if len(args) == 0 {
 		return "watch", nil
@@ -41,12 +41,12 @@ func splitCommand(args []string) (string, []string) {
 	return "watch", args
 }
 
-// Run menjalankan ccwatch dan mengembalikan exit code: 0 sukses, 1 gagal, 2 perintah tidak dikenal.
+// Run runs ccwatch and returns the exit code: 0 success, 1 failure, 2 unknown command.
 func Run(args []string) int {
 	name, rest := splitCommand(args)
 	cmd, ok := commands[name]
 	if !ok {
-		fmt.Fprintln(os.Stderr, "perintah tidak dikenal:", name)
+		fmt.Fprintln(os.Stderr, "unknown command:", name)
 		fmt.Fprintln(os.Stderr, usage)
 		return 2
 	}

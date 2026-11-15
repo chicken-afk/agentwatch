@@ -44,7 +44,7 @@ func TestInDir(t *testing.T) {
 		}
 	}
 
-	// beda huruf besar/kecil (macOS) cocok secara teks
+	// case differences (macOS) match textually
 	if got := InDir("/NONEXISTENT/X/y", "/nonexistent/x"); !got {
 		t.Error("case-insensitive text match expected for missing folders")
 	}

@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// fit memotong/mengisi s agar tepat selebar w kolom.
+// fit truncates/pads s to exactly w columns wide.
 func fit(s string, w int) string {
 	if w <= 0 {
 		return ""
@@ -21,7 +21,7 @@ func fit(s string, w int) string {
 	return s + strings.Repeat(" ", max(0, w-lipgloss.Width(s)))
 }
 
-// box menggambar kotak dengan judul di garis atas, lebar total = w.
+// box draws a box with the title on the top border; total width = w.
 func box(title string, border lipgloss.Color, w int, lines []string, minH int) string {
 	if w < 8 {
 		w = 8
@@ -45,8 +45,8 @@ func box(title string, border lipgloss.Color, w int, lines []string, minH int) s
 	return b.String()
 }
 
-// pulse: warna border yang "bernafas" antara redup dan terang (siklus ~1.6s)
-// untuk kotak yang sedang aktif (lead working, advisor memberi saran, subagent running).
+// pulse: a border color that "breathes" between dim and bright (~1.6s cycle)
+// for boxes that are currently active (lead working, advisor advising, subagent running).
 func pulse(c lipgloss.Color) lipgloss.Color {
 	const period = 1600 * time.Millisecond
 	ph := float64(time.Now().UnixNano()%int64(period)) / float64(period)
@@ -56,7 +56,7 @@ func pulse(c lipgloss.Color) lipgloss.Color {
 	return blend(dim, bright, k)
 }
 
-// blend: campur warna hex a → b sebesar t (0..1). Kalau bukan hex, kembalikan a.
+// blend: mix hex color a → b by t (0..1). If either isn't hex, return a.
 func blend(a, b lipgloss.Color, t float64) lipgloss.Color {
 	ar, ag, ab, ok1 := hexRGB(string(a))
 	br, bg, bb, ok2 := hexRGB(string(b))
@@ -75,7 +75,7 @@ func hexRGB(h string) (r, g, b int, ok bool) {
 	return r, g, b, err == nil
 }
 
-func kv(k, v string) string { return sDim.Render(fmt.Sprintf("%-7s", k)) + " " + v }
+func kv(k, v string) string { return sDim.Render(fmt.Sprintf("%-8s", k)) + " " + v }
 
 func bar(frac float64, w int, c lipgloss.Color) string {
 	frac = min(max(frac, 0), 1)
@@ -84,7 +84,7 @@ func bar(frac float64, w int, c lipgloss.Color) string {
 		lipgloss.NewStyle().Foreground(cBorder).Render(strings.Repeat("░", w-n))
 }
 
-// joinGap menyusun item berdampingan dengan jarak satu kolom.
+// joinGap lays items out side by side with a one-column gap.
 func joinGap(items []string) string {
 	var withGap []string
 	for i, it := range items {
@@ -96,8 +96,8 @@ func joinGap(items []string) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, withGap...)
 }
 
-// scrollWindow memotong lines menjadi jendela setinggi rows yang digeser scroll baris dari bawah.
-// Mengembalikan jendela dan nilai scroll yang sudah dibatasi.
+// scrollWindow cuts lines down to a rows-tall window, shifted up by scroll lines from the bottom.
+// Returns the window and the clamped scroll value.
 func scrollWindow(lines []string, rows, scroll int) ([]string, int) {
 	if rows <= 0 {
 		return nil, 0

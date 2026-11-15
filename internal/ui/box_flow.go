@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// flowBox: rantai model ringkas + langkah terakhir. rows = jumlah langkah yang ditampilkan.
+// flowBox: compact model chain + latest steps. rows = number of steps shown.
 func (m *model) flowBox(s *store.Session, w, rows int) string {
 	steps := s.Flow()
 	lines := []string{flowChain(steps, w-4-2), ""}
@@ -18,14 +18,14 @@ func (m *model) flowBox(s *store.Session, w, rows int) string {
 		lines = append(lines, flowLine(st))
 	}
 	if len(steps) == 0 {
-		lines = []string{sDim.Render("menunggu pesan pertama…")}
+		lines = []string{sDim.Render("waiting for the first message…")}
 	}
-	title := sBold.Render("URUTAN MODEL") + sDim.Render(fmt.Sprintf(" · %d langkah · tab 2 untuk lengkap", len(steps)))
+	title := sBold.Render("MODEL SEQUENCE") + sDim.Render(fmt.Sprintf(" · %d steps · tab 2 for full view", len(steps)))
 	return box(title, cBorder, w, lines, 0)
 }
 
-// flowChain: rantai ringkas "sonnet → opus (advisor) → haiku (Explore) → sonnet",
-// dipotong dari kiri dengan "…" supaya muat di width kolom.
+// flowChain: a compact chain "sonnet → opus (advisor) → haiku (Explore) → sonnet",
+// trimmed from the left with "…" to fit within width columns.
 func flowChain(steps []store.FlowStep, width int) string {
 	var chain []string
 	for _, st := range steps {
@@ -56,18 +56,18 @@ func flowLine(st store.FlowStep) string {
 	if span := st.End.Sub(st.Start); span >= time.Second {
 		d = " · " + format.Dur(span)
 	}
-	info := fmt.Sprintf("%d pesan", st.Count)
+	info := fmt.Sprintf("%d msgs", st.Count)
 	if st.Role == "advisor" {
-		info = fmt.Sprintf("%d saran", st.Count)
+		info = fmt.Sprintf("%d calls", st.Count)
 	}
 	if st.Tools > 0 {
-		info += fmt.Sprintf(" · %d tool", st.Tools)
+		info += fmt.Sprintf(" · %d tools", st.Tools)
 	}
 	return sDim.Render(format.Clock(st.Start)) + "  " + mc(st.Model, "● "+fmt.Sprintf("%-11s", format.PrettyModel(st.Model))) +
 		" " + sText.Render(fmt.Sprintf("%-16s", format.Clip(st.Role, 16))) + sDim.Render(info+d)
 }
 
-// flowView: tab 2, semua langkah model dengan penanda jeda panjang.
+// flowView: tab 2, every model step with markers for long gaps.
 func (m *model) flowView(s *store.Session, w, h int) string {
 	steps := s.Flow()
 	var lines []string
@@ -75,16 +75,16 @@ func (m *model) flowView(s *store.Session, w, h int) string {
 	for i, st := range steps {
 		gap := ""
 		if i > 0 && st.Start.Sub(prev) > 30*time.Second {
-			gap = sDim.Render(fmt.Sprintf("   (jeda %s)", format.Dur(st.Start.Sub(prev))))
+			gap = sDim.Render(fmt.Sprintf("   (gap %s)", format.Dur(st.Start.Sub(prev))))
 		}
 		lines = append(lines, sDim.Render(fmt.Sprintf("%4d ", i+1))+flowLine(st)+gap)
 		prev = st.End
 	}
 	if len(lines) == 0 {
-		lines = []string{sDim.Render("belum ada pesan model")}
+		lines = []string{sDim.Render("no model messages yet")}
 	}
 	view, sc := scrollWindow(lines, h-2, m.scroll)
 	m.scroll = sc
-	title := sBold.Render("URUTAN MODEL LENGKAP") + sDim.Render(fmt.Sprintf(" · %d langkah · j/k scroll", len(steps)))
+	title := sBold.Render("FULL MODEL SEQUENCE") + sDim.Render(fmt.Sprintf(" · %d steps · j/k scroll", len(steps)))
 	return box(title, cBorder, w, view, h-2)
 }

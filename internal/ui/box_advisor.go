@@ -9,17 +9,17 @@ import (
 	"ccwatch/internal/store"
 )
 
-const advisorActiveWindow = 8 * time.Second // setelah panggilan terakhir, advisor dianggap masih "memberi saran"
+const advisorActiveWindow = 8 * time.Second // after the last call, the advisor still counts as "advising"
 
-// advisorBox: kotak ADVISOR. h > 0 memaksa tinggi total kotak (riwayat mengisi sisanya).
+// advisorBox: the ADVISOR box. h > 0 forces the box's total height (history fills the rest).
 func (m *model) advisorBox(s *store.Session, w, h int) string {
 	if s.AdvisorCfg == "" && len(s.Advisor) == 0 {
 		lines := []string{
-			sDim.Render("tidak terdeteksi"),
+			sDim.Render("not detected"),
 			"",
-			sDim.Render("aktifkan dengan:"),
+			sDim.Render("enable with:"),
 			sText.Render("claude --advisor opus"),
-			sDim.Render("atau label manual:"),
+			sDim.Render("or label manually:"),
 			sText.Render("ccwatch --advisor opus"),
 		}
 		return box(sBold.Render("ADVISOR"), cBorder, w, lines, max(0, h-2))
@@ -34,9 +34,9 @@ func (m *model) advisorBox(s *store.Session, w, h int) string {
 	if n := len(s.Advisor); n > 0 {
 		if time.Since(s.Advisor[n-1].T) < advisorActiveWindow {
 			active = true
-			state = mc(model, m.spin()+" memberi saran")
+			state = mc(model, m.spin()+" advising")
 		} else {
-			state = sDim.Render("◇ ready · terakhir " + format.Clock(s.Advisor[n-1].T))
+			state = sDim.Render("◇ ready · last " + format.Clock(s.Advisor[n-1].T))
 		}
 	}
 	total := s.AdvisorUsage()
@@ -48,7 +48,7 @@ func (m *model) advisorBox(s *store.Session, w, h int) string {
 	if total.In+total.Out > 0 {
 		lines = append(lines, kv("token", fmt.Sprintf("%s in · %s out", format.Human(total.InputTotal()), format.Human(total.Out))))
 	}
-	lines = append(lines, "", sDim.Render("riwayat panggilan"))
+	lines = append(lines, "", sDim.Render("call history"))
 	room := 30
 	if h > 0 {
 		room = h - 2 - len(lines)
@@ -57,7 +57,7 @@ func (m *model) advisorBox(s *store.Session, w, h int) string {
 		lines = append(lines, advisorHistoryLine(s.Advisor[i]))
 	}
 	if len(s.Advisor) == 0 {
-		lines = append(lines, sDim.Render("belum dipanggil"))
+		lines = append(lines, sDim.Render("not called yet"))
 	}
 	title := sBold.Render("ADVISOR") + sDim.Render(" · ") + mc(model, format.PrettyModel(model))
 	border := modelColor(model)

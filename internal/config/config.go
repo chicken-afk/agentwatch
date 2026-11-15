@@ -1,6 +1,6 @@
-// Package config menyelesaikan lokasi file ccwatch/Claude Code dan membaca
-// pengaturan Claude Code yang relevan. Path dibaca dari environment tiap
-// dipanggil, jadi perubahan env (mis. oleh `ccwatch demo`) langsung berlaku.
+// Package config resolves ccwatch/Claude Code file locations and reads the
+// relevant Claude Code settings. Paths are read from the environment on every
+// call, so env changes (e.g. by `ccwatch demo`) take effect immediately.
 package config
 
 import (
@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 )
 
-// ClaudeDir: ~/.claude (atau CLAUDE_CONFIG_DIR kalau di-set).
+// ClaudeDir: ~/.claude (or CLAUDE_CONFIG_DIR if set).
 func ClaudeDir() string {
 	if d := os.Getenv("CLAUDE_CONFIG_DIR"); d != "" {
 		return d
@@ -18,7 +18,7 @@ func ClaudeDir() string {
 	return filepath.Join(home, ".claude")
 }
 
-// DataDir: tempat ccwatch menyimpan events.jsonl (CCWATCH_DIR menimpa default).
+// DataDir: where ccwatch stores events.jsonl (CCWATCH_DIR overrides the default).
 func DataDir() string {
 	if d := os.Getenv("CCWATCH_DIR"); d != "" {
 		return d
@@ -30,13 +30,13 @@ func EventsPath() string { return filepath.Join(DataDir(), "events.jsonl") }
 
 func SettingsPath() string { return filepath.Join(ClaudeDir(), "settings.json") }
 
-// MemoryPath: CLAUDE.md di folder yang sama dengan settings.json.
+// MemoryPath: CLAUDE.md in the same folder as settings.json.
 func MemoryPath(settingsPath string) string {
 	return filepath.Join(filepath.Dir(settingsPath), "CLAUDE.md")
 }
 
-// AdvisorModel membaca advisorModel dari settings: user, lalu proyek, lalu
-// proyek-lokal. Yang terakhir ditemukan menang; "" kalau tidak ada.
+// AdvisorModel reads advisorModel from settings: user, then project, then
+// project-local. The last one found wins; "" if none.
 func AdvisorModel(cwd string) string {
 	paths := []string{SettingsPath()}
 	if cwd != "" {

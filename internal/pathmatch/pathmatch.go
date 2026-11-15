@@ -1,4 +1,4 @@
-// Package pathmatch: perbandingan folder untuk memfilter sesi berdasarkan cwd.
+// Package pathmatch: folder comparison for filtering sessions by cwd.
 package pathmatch
 
 import (
@@ -13,9 +13,9 @@ var (
 	cache   = map[string]bool{}
 )
 
-// InDir: apakah cwd ada di dalam dir (sama, atau subfolder).
-// Dibandingkan sebagai folder di disk (os.SameFile), jadi beda huruf besar/kecil
-// (macOS) dan symlink tetap cocok. Hasil di-cache per pasangan cwd/dir.
+// InDir: whether cwd is inside dir (the same folder, or a subfolder).
+// Compared as folders on disk (os.SameFile), so case differences
+// (macOS) and symlinks still match. Results are cached per cwd/dir pair.
 func InDir(cwd, dir string) bool {
 	if cwd == "" || dir == "" {
 		return false
@@ -38,7 +38,7 @@ func inDir(cwd, dir string) bool {
 	d := strings.TrimSuffix(dir, "/")
 	for _, c := range []string{filepath.Clean(cwd), Real(cwd)} {
 		if strings.EqualFold(c, d) || strings.HasPrefix(strings.ToLower(c), strings.ToLower(d)+"/") {
-			// cocok secara teks; pastikan beneran folder yang sama kalau keduanya ada
+			// textual match; make sure it's really the same folder if both exist
 			if r := ancestorState(c, d); r != unknown {
 				return r == yes
 			}
@@ -51,12 +51,12 @@ func inDir(cwd, dir string) bool {
 type ancestry int
 
 const (
-	unknown ancestry = iota - 1 // folder tidak ada, tidak bisa dicek
+	unknown ancestry = iota - 1 // folder doesn't exist, can't be checked
 	no
 	yes
 )
 
-// ancestorState: yes kalau dir adalah cwd atau salah satu parent-nya.
+// ancestorState: yes if dir is cwd or one of its parents.
 func ancestorState(cwd, dir string) ancestry {
 	di, err := os.Stat(dir)
 	if err != nil {
@@ -83,7 +83,7 @@ func ancestorState(cwd, dir string) ancestry {
 	return no
 }
 
-// Real: path bersih dengan symlink di-resolve (mis. /tmp → /private/tmp di macOS).
+// Real: a clean path with symlinks resolved (e.g. /tmp → /private/tmp on macOS).
 func Real(p string) string {
 	if r, err := filepath.EvalSymlinks(p); err == nil {
 		return filepath.Clean(r)

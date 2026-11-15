@@ -1,17 +1,17 @@
-// ccwatch — live dashboard untuk sesi Claude Code.
+// ccwatch — live dashboard for Claude Code sessions.
 //
-// Subcommand:
+// Subcommands:
 //
-//	ccwatch                 buka dashboard (ikuti sesi paling aktif)
-//	ccwatch watch [flags]   sama seperti di atas
-//	ccwatch hook            dipanggil oleh hooks Claude Code (baca JSON dari stdin)
-//	ccwatch statusline      status line ringkas untuk Claude Code
-//	ccwatch install         pasang hooks ke ~/.claude/settings.json + aturan skill ke ~/.claude/CLAUDE.md
-//	ccwatch uninstall       lepas hooks dan aturan skill ccwatch
-//	ccwatch rules           pasang/perbarui aturan skill saja (--remove, --show)
-//	ccwatch demo            jalankan dashboard dengan sesi palsu (untuk coba tampilan)
+//	ccwatch                 open the dashboard (follow the most active session)
+//	ccwatch watch [flags]   same as above
+//	ccwatch hook            called by Claude Code hooks (reads JSON from stdin)
+//	ccwatch statusline      compact status line for Claude Code
+//	ccwatch install         install hooks into ~/.claude/settings.json + skill rules into ~/.claude/CLAUDE.md
+//	ccwatch uninstall       remove ccwatch hooks and skill rules
+//	ccwatch rules           install/update only the skill rules (--remove, --show)
+//	ccwatch demo            run the dashboard with a fake session (to try it out)
 //
-// Logika ada di paket internal/*; file ini hanya titik masuk.
+// The logic lives in the internal/* packages; this file is only the entry point.
 package main
 
 import (

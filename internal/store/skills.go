@@ -11,21 +11,21 @@ import (
 	"ccwatch/internal/format"
 )
 
-// SkillUse: satu pemakaian skill, entah dipanggil Claude lewat tool Skill
-// atau diketik user sebagai slash command (/nama).
+// SkillUse: one skill use, either called by Claude via the Skill tool
+// or typed by the user as a slash command (/name).
 type SkillUse struct {
 	T       time.Time
 	Name    string
-	Sub     string // subcommand: kata pertama args (mis. "layout" di /impeccable layout …)
-	Args    string // sisa args setelah subcommand
+	Sub     string // subcommand: first word of args (e.g. "layout" in /impeccable layout …)
+	Args    string // remaining args after the subcommand
 	Source  string // tool | slash
 	AgentID string // "" = lead
-	Who     string // lead | tipe subagent | user
+	Who     string // lead | subagent type | user
 	Model   string
-	ID      string // tool_use_id (untuk dedupe hook vs transcript)
+	ID      string // tool_use_id (to dedupe hook vs transcript)
 }
 
-// fill: lengkapi data yang kosong dari sumber lain (hook lama tanpa args, dsb.).
+// fill: fill in missing data from the other source (old hooks without args, etc.).
 func (c *SkillUse) fill(u SkillUse) {
 	if c.Model == "" {
 		c.Model = u.Model
@@ -35,7 +35,7 @@ func (c *SkillUse) fill(u SkillUse) {
 	}
 }
 
-// slash command bawaan Claude Code: bukan skill, jangan dicatat.
+// Claude Code built-in slash commands: not skills, don't record them.
 var builtinSlash = map[string]bool{
 	"clear": true, "compact": true, "model": true, "help": true, "config": true, "cost": true,
 	"exit": true, "quit": true, "resume": true, "login": true, "logout": true, "mcp": true,
@@ -45,7 +45,7 @@ var builtinSlash = map[string]bool{
 	"bug": true, "rewind": true, "export": true, "ide": true, "fast": true, "effort": true,
 }
 
-// slashSkill: "/nama args" → nama, args. ok=false kalau bukan slash command skill.
+// slashSkill: "/name args" → name, args. ok=false if it isn't a skill slash command.
 func slashSkill(prompt string) (name, args string, ok bool) {
 	p := strings.TrimSpace(prompt)
 	if !strings.HasPrefix(p, "/") || len(p) < 2 {
@@ -59,8 +59,8 @@ func slashSkill(prompt string) (name, args string, ok bool) {
 	return name, strings.TrimSpace(args), true
 }
 
-// systemPrompt: kalau "prompt" sebenarnya pesan otomatis dari Claude Code
-// (bukan ketikan user), kembalikan jenisnya; selain itu "".
+// systemPrompt: if the "prompt" is actually an automatic message from Claude Code
+// (not typed by the user), return its kind; otherwise "".
 func systemPrompt(p string) string {
 	p = strings.TrimSpace(p)
 	for _, tag := range []string{"task-notification", "agent-message", "bash-notification", "local-command-stdout", "system-reminder"} {
@@ -74,7 +74,7 @@ func systemPrompt(p string) string {
 var subRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,31}$`)
 
 // splitSub: "layout page http://…" → ("layout", "page http://…").
-// Kata pertama dianggap subcommand kalau berbentuk kata biasa (bukan path/url/flag).
+// The first word counts as a subcommand if it's a plain word (not a path/url/flag).
 func splitSub(args string) (sub, rest string) {
 	args = strings.TrimSpace(args)
 	first, rest, _ := strings.Cut(args, " ")
@@ -89,7 +89,7 @@ var (
 	cmdArgsRe = regexp.MustCompile(`(?s)<command-args>(.*?)</command-args>`)
 )
 
-// transcriptSlash: slash command dari pesan user di transcript
+// transcriptSlash: a slash command from a user message in the transcript
 // (<command-name>/impeccable</command-name><command-args>layout …</command-args>).
 func transcriptSlash(raw []byte) (name, args string, ok bool) {
 	if len(raw) == 0 || !strings.Contains(string(raw), "command-name") {
@@ -116,10 +116,10 @@ func transcriptSlash(raw []byte) (name, args string, ok bool) {
 	return slashSkill("/" + mm[1] + " " + args)
 }
 
-// dedupeWindow: dua catatan skill yang sama dari jalur berbeda (hook vs transcript) dalam jendela ini digabung.
+// dedupeWindow: two records of the same skill from different paths (hook vs transcript) within this window are merged.
 const dedupeWindow = 5 * time.Second
 
-// addSkill: catat pemakaian skill, dedupe antara hook dan transcript.
+// addSkill: record a skill use, deduping between hook and transcript.
 func (s *Session) addSkill(u SkillUse) {
 	if u.Name == "" {
 		return
@@ -134,7 +134,7 @@ func (s *Session) addSkill(u SkillUse) {
 			c.fill(u)
 			return
 		}
-		// sumber yang sama dari jalur lain (hook tanpa id / transcript) dalam jendela pendek
+		// same source from another path (hook without id / transcript) within a short window
 		if c.Name == u.Name && c.AgentID == u.AgentID && c.Source == u.Source &&
 			(c.ID == "" || u.ID == "") && absDur(c.T.Sub(u.T)) < dedupeWindow {
 			if c.ID == "" {
@@ -154,7 +154,7 @@ func absDur(d time.Duration) time.Duration {
 	return d
 }
 
-// promptOf: nomor prompt (1-based) yang sedang berjalan pada waktu t; 0 kalau belum ada.
+// promptOf: the (1-based) prompt number running at time t; 0 if none yet.
 func (s *Session) promptOf(t time.Time) int {
 	n := 0
 	for _, pt := range s.PromptTimes {
@@ -165,7 +165,7 @@ func (s *Session) promptOf(t time.Time) int {
 	return n
 }
 
-// CurrentSkills: skill yang dipakai sejak prompt terakhir (task saat ini).
+// CurrentSkills: skills used since the last prompt (the current task).
 func (s *Session) CurrentSkills() []SkillUse {
 	var start time.Time
 	if n := len(s.PromptTimes); n > 0 {
@@ -180,7 +180,7 @@ func (s *Session) CurrentSkills() []SkillUse {
 	return out
 }
 
-// SkillActive: skill masih "jalan" selama pemanggilnya masih bekerja di prompt ini.
+// SkillActive: a skill is still "running" while its caller is still working in this prompt.
 func (s *Session) SkillActive(u SkillUse) bool {
 	if s.Status == "ended" {
 		return false
@@ -192,16 +192,16 @@ func (s *Session) SkillActive(u SkillUse) bool {
 	return s.Status == "working"
 }
 
-// ContextSkill: skill dari prompt sebelumnya, dikelompokkan per nama.
+// ContextSkill: skills from earlier prompts, grouped by name.
 type ContextSkill struct {
 	Name, Model string
-	Who         string   // lead atau tipe subagent
-	Subs        []string // subcommand unik, urut pertama dipakai
+	Who         string   // lead or subagent type
+	Subs        []string // unique subcommands, in order of first use
 	SubCount    map[string]int
 	Count       int
 	Last        time.Time
 	LastPrompt  int
-	FromCompact bool // hanya diketahui dari invoked_skills (dipertahankan setelah compact)
+	FromCompact bool // known only from invoked_skills (preserved after a compact)
 }
 
 // SubsLabel: "layout ×2, extract".
@@ -217,14 +217,14 @@ func (c ContextSkill) SubsLabel() string {
 	return strings.Join(ps, ", ")
 }
 
-// ContextSkills: skill dari prompt-prompt sebelumnya.
-//   - lead: skill yang dipanggil lead tetap ada di konteks lead sepanjang sesi
-//     (Claude Code menyertakannya lagi lewat invoked_skills setelah compact).
-//   - sub: skill yang dipanggil subagent hanya ada di konteks subagent itu → riwayat.
+// ContextSkills: skills from earlier prompts.
+//   - lead: skills the lead invoked stay in the lead's context for the whole session
+//     (Claude Code re-attaches them via invoked_skills after a compact).
+//   - sub: skills a subagent invoked only live in that subagent's context → history.
 func (s *Session) ContextSkills() (lead, sub []ContextSkill) {
 	cur := len(s.PromptTimes)
 	if cur == 0 {
-		// tanpa batas prompt, semua sudah tampil sebagai "saat ini"
+		// no prompt boundary: everything is already shown as "current"
 		return nil, nil
 	}
 	curNames := map[string]bool{}
@@ -237,18 +237,18 @@ func (s *Session) ContextSkills() (lead, sub []ContextSkill) {
 	for _, u := range s.Skills {
 		p := s.promptOf(u.T)
 		if p >= cur {
-			continue // prompt saat ini, sudah tampil di atas
+			continue // current prompt, already shown above
 		}
 		if u.AgentID == "" {
 			if curNames[u.Name] {
-				continue // dipakai lagi di prompt ini
+				continue // used again in this prompt
 			}
 			addContextSkill(&lead, li, u.Name, u, p)
 		} else {
 			addContextSkill(&sub, si, u.Who+"\x00"+u.Name, u, p)
 		}
 	}
-	// skill yang hanya diketahui dari invoked_skills (mis. dipanggil sebelum hooks/tail)
+	// skills known only from invoked_skills (e.g. invoked before hooks/tailing started)
 	for name := range s.InvokedSkills {
 		if _, ok := li[name]; ok || curNames[name] {
 			continue
@@ -264,7 +264,7 @@ func (s *Session) ContextSkills() (lead, sub []ContextSkill) {
 	return lead, sub
 }
 
-// addContextSkill menambah pemakaian u (di prompt ke-p) ke grup key di list.
+// addContextSkill adds use u (in prompt p) to group key in list.
 func addContextSkill(list *[]ContextSkill, idx map[string]int, key string, u SkillUse, p int) {
 	i, ok := idx[key]
 	if !ok {

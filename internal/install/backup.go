@@ -1,5 +1,5 @@
-// Package install memasang/melepas integrasi ccwatch di konfigurasi Claude Code:
-// hooks (+ status line) di settings.json dan blok aturan skill di CLAUDE.md.
+// Package install installs/removes the ccwatch integration in the Claude Code config:
+// hooks (+ status line) in settings.json and the skill rules block in CLAUDE.md.
 package install
 
 import (
@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// writeWithBackup menulis data ke path. Kalau file sudah ada (orig != nil),
-// salinan lama disimpan dulu sebagai <path>.ccwatch-backup-<waktu>.
+// writeWithBackup writes data to path. If the file already exists (orig != nil),
+// the old copy is saved first as <path>.ccwatch-backup-<time>.
 func writeWithBackup(path string, data, orig []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -21,7 +21,7 @@ func writeWithBackup(path string, data, orig []byte) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// backup menyimpan orig sebagai file cadangan; tidak melakukan apa pun kalau orig == nil.
+// backup saves orig as a backup file; does nothing if orig == nil.
 func backup(path string, orig []byte) error {
 	if orig == nil {
 		return nil

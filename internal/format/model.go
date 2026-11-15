@@ -38,7 +38,7 @@ func PrettyModel(m string) string {
 	return fam + " " + strings.Join(ver, ".")
 }
 
-// ModelFamily: keluarga model (opus/sonnet/…) dari id model, "" kalau tidak dikenal.
+// ModelFamily: the model family (opus/sonnet/…) from a model id, "" if unknown.
 func ModelFamily(m string) string {
 	l := strings.ToLower(m)
 	for _, f := range families {

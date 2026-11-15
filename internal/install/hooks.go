@@ -16,7 +16,7 @@ var hookEvents = []string{
 	"PreCompact", "Notification",
 }
 
-// selfCommand: perintah untuk memanggil ccwatch ini sendiri dengan subcommand sub.
+// selfCommand: the command that invokes this ccwatch binary with subcommand sub.
 func selfCommand(sub string) (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
@@ -31,7 +31,7 @@ func selfCommand(sub string) (string, error) {
 	return exe + " " + sub, nil
 }
 
-// readSettings: isi settings.json beserta byte aslinya (nil kalau file belum ada).
+// readSettings: settings.json content plus its original bytes (nil if the file doesn't exist yet).
 func readSettings(path string) (map[string]any, []byte, error) {
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -43,7 +43,7 @@ func readSettings(path string) (map[string]any, []byte, error) {
 	s := map[string]any{}
 	if len(strings.TrimSpace(string(b))) > 0 {
 		if err := json.Unmarshal(b, &s); err != nil {
-			return nil, nil, fmt.Errorf("%s bukan JSON valid: %w", path, err)
+			return nil, nil, fmt.Errorf("%s is not valid JSON: %w", path, err)
 		}
 	}
 	return s, b, nil
@@ -57,20 +57,20 @@ func writeSettings(path string, s map[string]any, orig []byte) error {
 	return writeWithBackup(path, append(b, '\n'), orig)
 }
 
-// isOurs: apakah command berakhir dengan " <sub>" dan menunjuk ke ccwatch.
+// isOurs: whether command ends with " <sub>" and points to ccwatch.
 func isOurs(cmd, sub string) bool {
 	return strings.Contains(cmd, "ccwatch") && strings.HasSuffix(strings.TrimSpace(cmd), " "+sub)
 }
 
-// commandOf: field "command" dari satu hook (kosong kalau bukan object/string).
+// commandOf: the "command" field of one hook (empty if it isn't an object/string).
 func commandOf(h any) string {
 	hm, _ := h.(map[string]any)
 	c, _ := hm["command"].(string)
 	return c
 }
 
-// InstallHooks menambah hook ccwatch ke settings.json di path tanpa menghapus
-// hook/setting lain. Hook ccwatch yang sudah ada hanya diperbarui path-nya.
+// InstallHooks adds the ccwatch hooks to the settings.json at path without removing
+// other hooks/settings. Existing ccwatch hooks only get their path updated.
 func InstallHooks(path string, withStatusline bool) error {
 	cmd, err := selfCommand("hook")
 	if err != nil {
@@ -108,13 +108,13 @@ func InstallHooks(path string, withStatusline bool) error {
 	if err := writeSettings(path, s, orig); err != nil {
 		return err
 	}
-	fmt.Printf("hooks ccwatch terpasang di %s (%d event baru, %d total)\n", path, added, len(hookEvents))
-	fmt.Println("Mulai sesi Claude Code baru supaya hooks aktif, lalu jalankan `ccwatch` di split sebelah.")
+	fmt.Printf("ccwatch hooks installed in %s (%d new events, %d total)\n", path, added, len(hookEvents))
+	fmt.Println("Start a new Claude Code session so the hooks take effect, then run `ccwatch` in a split next to it.")
 	return nil
 }
 
-// refreshHookCommand memperbarui command hook ccwatch yang sudah ada di groups
-// (path binary bisa berubah). Mengembalikan true kalau ada yang ditemukan.
+// refreshHookCommand updates existing ccwatch hook commands in groups
+// (the binary path may have changed). Returns true if any were found.
 func refreshHookCommand(groups []any, cmd string) bool {
 	found := false
 	for _, g := range groups {
@@ -132,22 +132,22 @@ func refreshHookCommand(groups []any, cmd string) bool {
 
 func installStatusline(s map[string]any) {
 	if _, exists := s["statusLine"]; exists {
-		fmt.Println("statusLine sudah ada, tidak saya timpa. Hapus dulu kalau mau pakai milik ccwatch.")
+		fmt.Println("A statusLine is already set; leaving it alone. Remove it first if you want the ccwatch one.")
 		return
 	}
 	sc, _ := selfCommand("statusline")
 	s["statusLine"] = map[string]any{"type": "command", "command": sc, "padding": 0}
-	fmt.Println("statusLine ccwatch dipasang.")
+	fmt.Println("ccwatch statusLine installed.")
 }
 
-// UninstallHooks melepas hook dan status line ccwatch dari settings.json di path.
+// UninstallHooks removes the ccwatch hooks and status line from the settings.json at path.
 func UninstallHooks(path string) error {
 	s, orig, err := readSettings(path)
 	if err != nil {
 		return err
 	}
 	if orig == nil {
-		fmt.Println("settings.json tidak ada, tidak ada yang dilepas.")
+		fmt.Println("settings.json not found, nothing to remove.")
 		return nil
 	}
 	hooks, _ := s["hooks"].(map[string]any)
@@ -168,18 +168,18 @@ func UninstallHooks(path string) error {
 	if sl, ok := s["statusLine"].(map[string]any); ok {
 		if c, _ := sl["command"].(string); isOurs(c, "statusline") {
 			delete(s, "statusLine")
-			fmt.Println("statusLine ccwatch dilepas.")
+			fmt.Println("ccwatch statusLine removed.")
 		}
 	}
 	if err := writeSettings(path, s, orig); err != nil {
 		return err
 	}
-	fmt.Printf("%d hook ccwatch dilepas dari %s\n", removed, path)
+	fmt.Printf("removed %d ccwatch hooks from %s\n", removed, path)
 	return nil
 }
 
-// withoutOurHooks membuang hook ccwatch dari groups; group yang jadi kosong ikut dibuang.
-// Mengembalikan group yang tersisa dan jumlah hook yang dilepas.
+// withoutOurHooks drops ccwatch hooks from groups; groups left empty are dropped too.
+// Returns the remaining groups and the number of hooks removed.
 func withoutOurHooks(groups []any) (kept []any, removed int) {
 	for _, g := range groups {
 		gm, _ := g.(map[string]any)

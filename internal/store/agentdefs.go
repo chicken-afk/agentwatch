@@ -9,14 +9,14 @@ import (
 	"ccwatch/internal/config"
 )
 
-// AgentDef: definisi subagent dari .claude/agents/*.md (frontmatter).
+// AgentDef: a subagent definition from .claude/agents/*.md (frontmatter).
 type AgentDef struct {
 	Name, Model, Desc string
 	Source            string // project | user
 	Path              string
 }
 
-// ModelLabel: label model untuk definisi agent ("inherit"/kosong = ikut lead).
+// ModelLabel: the model label for an agent definition ("inherit"/empty = same as lead).
 func (d AgentDef) ModelLabel() string {
 	if d.Model == "" || d.Model == "inherit" {
 		return "inherit"
@@ -24,9 +24,9 @@ func (d AgentDef) ModelLabel() string {
 	return d.Model
 }
 
-// readAgentDefs: subagent yang terkonfigurasi untuk sesi di cwd.
-// Project (.claude/agents terdekat dari cwd ke atas) menimpa user (~/.claude/agents)
-// kalau namanya sama, sama seperti Claude Code.
+// readAgentDefs: the subagents configured for a session in cwd.
+// Project (nearest .claude/agents going up from cwd) overrides user (~/.claude/agents)
+// when names match, just like Claude Code.
 func readAgentDefs(cwd string) []AgentDef {
 	byName := map[string]AgentDef{}
 	for _, d := range loadAgentDir(filepath.Join(config.ClaudeDir(), "agents"), "user") {
@@ -45,7 +45,7 @@ func readAgentDefs(cwd string) []AgentDef {
 	return out
 }
 
-// projectAgentsDir: cari <dir>/.claude/agents dari cwd naik ke atas (berhenti sebelum home).
+// projectAgentsDir: find <dir>/.claude/agents going up from cwd (stopping before home).
 func projectAgentsDir(cwd string) string {
 	if cwd == "" {
 		return ""
@@ -89,7 +89,7 @@ func loadAgentDir(dir, source string) []AgentDef {
 	return out
 }
 
-// frontmatter: parse sederhana "key: value" di antara baris --- pertama dan kedua.
+// frontmatter: a simple "key: value" parse between the first and second --- lines.
 func frontmatter(s string) map[string]string {
 	m := map[string]string{}
 	s = strings.TrimPrefix(s, "\uFEFF")
@@ -117,7 +117,7 @@ func frontmatter(s string) map[string]string {
 	return m
 }
 
-// IdleDefs: subagent terkonfigurasi yang belum pernah dipanggil di sesi ini.
+// IdleDefs: configured subagents that haven't been called in this session yet.
 func (s *Session) IdleDefs() []AgentDef {
 	used := map[string]bool{}
 	for _, a := range s.Agents {

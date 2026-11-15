@@ -5,19 +5,19 @@ import (
 	"time"
 )
 
-// Options mengatur sesi mana yang dilacak dan bagaimana advisor dilabeli.
+// Options controls which sessions are tracked and how the advisor is labeled.
 type Options struct {
 	Session string
-	Advisor string // label advisor global (semua sesi)
-	// AdvisorBySession: label advisor per session id (key = prefix id).
+	Advisor string // global advisor label (all sessions)
+	// AdvisorBySession: advisor label per session id (key = id prefix).
 	AdvisorBySession map[string]string
 	Recent           time.Duration
-	// Dir: kalau di-set, hanya tampilkan sesi yang cwd-nya folder ini (atau subfolder-nya).
+	// Dir: if set, only show sessions whose cwd is this folder (or a subfolder of it).
 	Dir string
 }
 
-// advisorFor: label advisor manual untuk sesi id, "" kalau tidak ada.
-// Label per sesi (prefix terpanjang yang cocok) menang atas label global.
+// advisorFor: the manual advisor label for session id, "" if none.
+// A per-session label (longest matching prefix) wins over the global label.
 func (o Options) advisorFor(id string) string {
 	best, bestLen := "", -1
 	for p, mdl := range o.AdvisorBySession {

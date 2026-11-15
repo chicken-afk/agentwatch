@@ -7,8 +7,8 @@ import (
 	"os"
 )
 
-// tailer membaca file JSONL secara inkremental: tiap read() hanya memproses
-// baris lengkap yang baru ditambahkan sejak panggilan sebelumnya.
+// tailer reads a JSONL file incrementally: each read() only processes
+// complete lines appended since the previous call.
 type tailer struct {
 	path    string
 	off     int64
@@ -21,7 +21,7 @@ func (t *tailer) read(fn func([]byte)) {
 		return
 	}
 	defer f.Close()
-	if st, err := f.Stat(); err == nil && st.Size() < t.off { // file dirotasi / dipotong
+	if st, err := f.Stat(); err == nil && st.Size() < t.off { // file rotated / truncated
 		t.off, t.partial = 0, nil
 	}
 	if _, err := f.Seek(t.off, io.SeekStart); err != nil {

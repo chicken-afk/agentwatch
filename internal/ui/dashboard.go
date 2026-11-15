@@ -7,15 +7,15 @@ import (
 )
 
 const (
-	wideMinWidth = 110 // di bawah ini kotak ditumpuk vertikal
-	minLogRows   = 6   // ruang minimal log yang disisakan sebelum urutan model mengisi sisanya
+	wideMinWidth = 110 // below this, boxes are stacked vertically
+	minLogRows   = 6   // minimum log rows kept before the model sequence fills the rest
 )
 
-// dashboard: tab 1. Layar lebar → kolom kiri (ADVISOR + SKILLS) dan kanan (LEAD, URUTAN MODEL,
-// SUBAGENT); layar sempit → semuanya ditumpuk. PEMAKAIAN MODEL dan SESSION LOG di bawah.
+// dashboard: tab 1. Wide screen → left column (ADVISOR + SKILLS) and right (LEAD, MODEL SEQUENCE,
+// SUBAGENTS); narrow screen → everything stacked. MODEL USAGE and SESSION LOG at the bottom.
 func (m *model) dashboard(s *store.Session, w, h int) string {
 	wide := w >= wideMinWidth
-	// kolom kiri (ADVISOR + SKILLS) ikut lebar terminal: ±36%, 40–60 kolom
+	// left column (ADVISOR + SKILLS) scales with terminal width: ±36%, 40–60 columns
 	leftW := min(60, max(40, w*36/100))
 	rightW, skillW := w-leftW-1, leftW
 	if !wide {

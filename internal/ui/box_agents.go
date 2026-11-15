@@ -15,10 +15,10 @@ import (
 
 const (
 	agentCardWidth = 30
-	agentCardRows  = 2 // baris kartu subagent maksimal di dashboard
+	agentCardRows  = 2 // max subagent card rows on the dashboard
 )
 
-// agentEnd: waktu akhir untuk menghitung durasi subagent (sekarang kalau masih jalan).
+// agentEnd: end time used for a subagent's duration (now if it's still running).
 func agentEnd(a *store.Agent) time.Time {
 	if a.Status != "done" {
 		return time.Now()
@@ -69,14 +69,14 @@ func (m *model) agentGrid(s *store.Session, w int) string {
 	ag := s.AgentsOrdered()
 	idle := s.IdleDefs()
 	if len(ag) == 0 {
-		lines := []string{sDim.Render("belum ada subagent dipanggil di sesi ini")}
+		lines := []string{sDim.Render("no subagents called in this session yet")}
 		if len(idle) > 0 {
-			lines = append(lines, "", sDim.Render("terkonfigurasi (.claude/agents):"))
+			lines = append(lines, "", sDim.Render("configured (.claude/agents):"))
 			for _, d := range idle {
 				lines = append(lines, idleDefLine(d, w-4))
 			}
 		}
-		return box(sBold.Render("SUBAGENT"), cBorder, w, lines, 0)
+		return box(sBold.Render("SUBAGENTS"), cBorder, w, lines, 0)
 	}
 
 	cols := max(1, (w+1)/(agentCardWidth+1))
@@ -95,7 +95,7 @@ func (m *model) agentGrid(s *store.Session, w int) string {
 	}
 	title := sDim.Render(fmt.Sprintf(" subagent %d running · %d total", s.Running(), len(ag)))
 	if len(ag) > shown {
-		title += sDim.Render(fmt.Sprintf(" · +%d lain (tab 4)", len(ag)-shown))
+		title += sDim.Render(fmt.Sprintf(" · +%d more (tab 4)", len(ag)-shown))
 	}
 	out := title + "\n" + strings.Join(rows, "\n")
 	if len(idle) > 0 {
@@ -103,26 +103,26 @@ func (m *model) agentGrid(s *store.Session, w int) string {
 		for _, d := range idle {
 			ps = append(ps, mc(d.ModelLabel(), "◇ "+d.Name)+sDim.Render(" ("+format.PrettyModel(d.ModelLabel())+")"))
 		}
-		out += "\n" + fit(sDim.Render(" siap, belum dipanggil: ")+strings.Join(ps, sDim.Render(" · ")), w)
+		out += "\n" + fit(sDim.Render(" ready, not called yet: ")+strings.Join(ps, sDim.Render(" · ")), w)
 	}
 	return out
 }
 
-// idleDefLine: satu baris untuk subagent terkonfigurasi yang belum dipanggil.
+// idleDefLine: one line for a configured subagent that hasn't been called yet.
 func idleDefLine(d store.AgentDef, w int) string {
 	mdl := d.ModelLabel()
 	head := mc(mdl, "◇ ") + mcb(mdl, d.Name) + sDim.Render(" · ") + mc(mdl, format.PrettyModel(mdl)) +
-		sDim.Render(" · "+d.Source+" · siap")
+		sDim.Render(" · "+d.Source+" · ready")
 	if d.Desc == "" {
 		return head
 	}
 	return head + sDim.Render(" — "+format.Clip(d.Desc, max(10, w-lipgloss.Width(head)-3)))
 }
 
-// agentsView: tab 4, tabel semua subagent plus yang terkonfigurasi tapi belum dipanggil.
+// agentsView: tab 4, a table of all subagents plus configured ones not called yet.
 func (m *model) agentsView(s *store.Session, w, h int) string {
 	hdr := sDim.Render(fmt.Sprintf("%-3s %-18s %-22s %-9s %8s %6s %6s %8s %7s  %s",
-		"#", "TIPE", "MODEL", "STATUS", "DURASI", "TOOL", "PESAN", "IN", "OUT", "TUGAS"))
+		"#", "TYPE", "MODEL", "STATUS", "DURATION", "TOOL", "MSGS", "IN", "OUT", "TASK"))
 	var lines []string
 	ag := s.AgentsOrdered()
 	sort.SliceStable(ag, func(i, j int) bool { return ag[i].Start.Before(ag[j].Start) })
@@ -134,11 +134,11 @@ func (m *model) agentsView(s *store.Session, w, h int) string {
 		lines = append(lines, idleDefRow(len(ag)+i+1, d))
 	}
 	if len(lines) == 0 {
-		lines = []string{sDim.Render("belum ada subagent (dan tidak ada di .claude/agents)")}
+		lines = []string{sDim.Render("no subagents yet (and none in .claude/agents)")}
 	}
 	view, sc := scrollWindow(lines, h-3, m.scroll)
 	m.scroll = sc
-	title := sBold.Render("SEMUA SUBAGENT") + sDim.Render(fmt.Sprintf(" · %d running · %d total · %d siap", s.Running(), len(ag), len(idle)))
+	title := sBold.Render("ALL SUBAGENTS") + sDim.Render(fmt.Sprintf(" · %d running · %d total · %d ready", s.Running(), len(ag), len(idle)))
 	return box(title, cBorder, w, append([]string{hdr}, view...), h-2)
 }
 
@@ -166,7 +166,7 @@ func idleDefRow(n int, d store.AgentDef) string {
 	return sDim.Render(fmt.Sprintf("%-3d ", n)) +
 		mc(mdl, fmt.Sprintf("%-18s", format.Clip(d.Name, 18))) + " " +
 		mc(mdl, fmt.Sprintf("%-22s", format.Clip(format.PrettyModel(mdl), 22))) + " " +
-		sDim.Render(fmt.Sprintf("%-9s", "siap")) +
+		sDim.Render(fmt.Sprintf("%-9s", "ready")) +
 		sDim.Render(fmt.Sprintf(" %8s %6s %6s %8s %7s  ", "-", "-", "-", "-", "-")) +
 		sDim.Render("["+d.Source+"] "+d.Desc)
 }

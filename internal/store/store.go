@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	metadataTTL     = 15 * time.Second // seberapa sering settings & definisi agent dibaca ulang
+	metadataTTL     = 15 * time.Second // how often settings & agent definitions are re-read
 	recentScanEvery = 3 * time.Second
-	agentIdleAfter  = 20 * time.Second // tanpa hooks: subagent dianggap selesai kalau transcript diam selama ini
+	agentIdleAfter  = 20 * time.Second // without hooks: a subagent counts as done once its transcript has been quiet this long
 )
 
 type Store struct {
@@ -43,7 +43,7 @@ func (st *Store) session(id string) *Session {
 	return s
 }
 
-// Visible: sesi yang lolos filter folder (Options.Dir), yang terbaru aktif di depan.
+// Visible: sessions passing the folder filter (Options.Dir), most recently active first.
 func (st *Store) Visible() []*Session {
 	var out []*Session
 	for _, s := range st.Sessions {
@@ -56,7 +56,7 @@ func (st *Store) Visible() []*Session {
 	return out
 }
 
-// Refresh membaca event & transcript baru dan memperbarui semua sesi.
+// Refresh reads new events & transcripts and updates every session.
 func (st *Store) Refresh() {
 	st.events.read(st.ingestEvent)
 
@@ -74,7 +74,7 @@ func (st *Store) Refresh() {
 	}
 }
 
-// refreshMetadata memuat ulang definisi subagent dan label advisor sesi.
+// refreshMetadata reloads subagent definitions and session advisor labels.
 func (st *Store) refreshMetadata(s *Session, now time.Time) {
 	if s.Cwd != "" && (s.defsCwd != s.Cwd || now.Sub(s.defsAt) > metadataTTL) {
 		s.defsAt, s.defsCwd = now, s.Cwd
@@ -90,7 +90,7 @@ func (st *Store) refreshMetadata(s *Session, now time.Time) {
 	}
 }
 
-// tailTranscripts membaca transcript lead dan semua subagent sesi.
+// tailTranscripts reads the session's lead and subagent transcripts.
 func (st *Store) tailTranscripts(s *Session, now time.Time) {
 	s.tail(s.Transcript, "")
 	// subagent transcript: <session>/subagents/agent-*.jsonl
@@ -104,7 +104,7 @@ func (st *Store) tailTranscripts(s *Session, now time.Time) {
 		}
 		s.tail(m, id)
 		if !a.hookStarted && a.Status != "done" {
-			// tanpa hooks: anggap selesai kalau file tidak berubah
+			// without hooks: treat it as done if the file hasn't changed
 			if fi, err := os.Stat(m); err == nil && now.Sub(fi.ModTime()) > agentIdleAfter {
 				a.Status = "done"
 				if a.End.IsZero() {
@@ -120,7 +120,7 @@ func (st *Store) tailTranscripts(s *Session, now time.Time) {
 	}
 }
 
-// scanRecentTranscripts mendaftarkan transcript yang aktif dalam d (mode --recent, tanpa hooks).
+// scanRecentTranscripts registers transcripts active within d (--recent mode, without hooks).
 func (st *Store) scanRecentTranscripts(d time.Duration) {
 	files, _ := filepath.Glob(filepath.Join(config.ClaudeDir(), "projects", "*", "*.jsonl"))
 	for _, f := range files {

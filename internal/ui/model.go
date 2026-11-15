@@ -11,8 +11,8 @@ import (
 
 const (
 	tabCount     = 4
-	tickEvery    = 100 * time.Millisecond // animasi
-	refreshEvery = 300 * time.Millisecond // baca data
+	tickEvery    = 100 * time.Millisecond // animation
+	refreshEvery = 300 * time.Millisecond // data reads
 	wheelStep    = 3
 	pageStep     = 15
 )
@@ -25,7 +25,7 @@ type model struct {
 	st     *store.Store
 	w, h   int
 	tab    int
-	pinned string // prefix session id yang dikunci; "" = ikuti sesi paling aktif
+	pinned string // pinned session id prefix; "" = follow the most active session
 
 	refreshedAt time.Time
 	scroll      int
@@ -36,7 +36,7 @@ func tick() tea.Cmd {
 	return tea.Tick(tickEvery, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
-// Run membuka dashboard live sampai user keluar.
+// Run opens the live dashboard until the user quits.
 func Run(o store.Options) error {
 	m := &model{st: store.New(o), pinned: o.Session}
 	m.st.Refresh()
@@ -44,7 +44,7 @@ func Run(o store.Options) error {
 	return err
 }
 
-// Snapshot merender satu frame dashboard tanpa terminal interaktif (dipakai `ccwatch demo --snapshot`).
+// Snapshot renders one dashboard frame without an interactive terminal (used by `ccwatch demo --snapshot`).
 func Snapshot(o store.Options, w, h, tab int) string {
 	m := &model{st: store.New(o), w: w, h: h, tab: tab, frame: 1}
 	m.st.Refresh()
@@ -53,7 +53,7 @@ func Snapshot(o store.Options, w, h, tab int) string {
 
 func (m *model) Init() tea.Cmd { return tick() }
 
-// spin: frame spinner, ganti tiap ~300ms walau tick UI 100ms.
+// spin: spinner frame, advancing every ~300ms even though the UI ticks every 100ms.
 func (m *model) spin() string { return spinFrames[(m.frame/3)%len(spinFrames)] }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -124,7 +124,7 @@ func (m *model) setTab(t int) {
 	m.scroll = 0
 }
 
-// current: sesi yang sedang ditampilkan beserta posisinya (index, total).
+// current: the session being shown plus its position (index, total).
 func (m *model) current() (*store.Session, int, int) {
 	ss := m.st.Visible()
 	if len(ss) == 0 {
@@ -140,7 +140,7 @@ func (m *model) current() (*store.Session, int, int) {
 	return ss[0], 0, len(ss)
 }
 
-// cycle pindah ke sesi sebelum/sesudahnya (d = -1/+1) dan mengunci sesi itu.
+// cycle moves to the previous/next session (d = -1/+1) and pins it.
 func (m *model) cycle(d int) {
 	ss := m.st.Visible()
 	if len(ss) == 0 {

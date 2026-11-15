@@ -1,4 +1,4 @@
-// Package ui: dashboard terminal (Bubble Tea) untuk sesi Claude Code.
+// Package ui: terminal dashboard (Bubble Tea) for Claude Code sessions.
 package ui
 
 import (
@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Singkatan dari package theme supaya kode render tetap ringkas.
+// Short aliases for package theme so the render code stays compact.
 var (
 	sDim   = theme.Dim
 	sText  = theme.Text
@@ -25,6 +25,6 @@ var (
 
 func modelColor(m string) lipgloss.Color { return theme.ModelColor(m) }
 
-// mc / mcb: warnai teks dengan warna keluarga model (mcb = tebal).
+// mc / mcb: color text with the model family's color (mcb = bold).
 func mc(m, text string) string  { return theme.Model(m, text) }
 func mcb(m, text string) string { return theme.ModelBold(m, text) }

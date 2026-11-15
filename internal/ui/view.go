@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var tabNames = [tabCount]string{"1 dashboard", "2 urutan model", "3 log", "4 subagent"}
+var tabNames = [tabCount]string{"1 dashboard", "2 model sequence", "3 log", "4 subagents"}
 
 func (m *model) View() string {
 	w, h := m.w, m.h
@@ -53,23 +53,23 @@ func (m *model) emptyView(w, h int) string {
 	lines := []string{
 		sBold.Render("CLAUDE CODE WATCH"),
 		"",
-		sText.Render("Belum ada sesi Claude Code yang terlihat."),
+		sText.Render("No Claude Code sessions found yet."),
 		"",
 	}
 	if d := m.st.Options().Dir; d != "" {
 		lines = append(lines,
-			sDim.Render("Hanya sesi di folder: ")+sText.Render(d),
-			sDim.Render("Lihat semua folder:   ")+"ccwatch --all",
+			sDim.Render("Only sessions in folder: ")+sText.Render(d),
+			sDim.Render("Show all folders:        ")+"ccwatch --all",
 			"",
 		)
 	}
 	lines = append(lines,
-		sDim.Render("1. pasang hooks:      ")+"ccwatch install",
-		sDim.Render("2. buka sesi baru:    ")+"claude --model sonnet --advisor opus",
-		sDim.Render("3. dashboard ini akan ikut otomatis."),
+		sDim.Render("1. install hooks:       ")+"ccwatch install",
+		sDim.Render("2. start a new session: ")+"claude --model sonnet --advisor opus",
+		sDim.Render("3. this dashboard picks it up automatically."),
 		"",
-		sDim.Render("Tanpa hooks: ")+"ccwatch --recent 30m"+sDim.Render("  (baca transcript yang baru aktif)"),
-		sDim.Render("Coba tampilan: ")+"ccwatch demo",
+		sDim.Render("Without hooks: ")+"ccwatch --recent 30m"+sDim.Render("  (reads recently active transcripts)"),
+		sDim.Render("Try the demo:  ")+"ccwatch demo",
 		"",
 		sDim.Render("events: "+config.EventsPath()),
 	)
@@ -80,7 +80,7 @@ func (m *model) emptyView(w, h int) string {
 func (m *model) statusBadge(s *store.Session) string {
 	switch {
 	case s.Status == "ended":
-		return sDim.Render("■ selesai")
+		return sDim.Render("■ ended")
 	case s.Status == "working" || s.Running() > 0:
 		return sGreen.Render(m.spin() + " working")
 	case !s.HasHooks:
@@ -100,17 +100,17 @@ func (m *model) header(s *store.Session, idx, n, w int) string {
 		el = format.Dur(end.Sub(s.Start))
 	}
 	left := sBold.Render("CLAUDE CODE WATCH") + sDim.Render("  ·  ") +
-		sText.Render("sesi "+format.Short(s.ID)) + sDim.Render(" · ") + sText.Render(format.BaseDir(s.Cwd)) +
+		sText.Render("session "+format.Short(s.ID)) + sDim.Render(" · ") + sText.Render(format.BaseDir(s.Cwd)) +
 		sDim.Render(" · ") + sText.Render(el) + "   " + m.statusBadge(s)
 	follow := "follow"
 	if m.pinned != "" {
 		follow = "pinned"
 	}
-	scope := "semua folder"
+	scope := "all folders"
 	if d := m.st.Options().Dir; d != "" {
 		scope = "folder " + format.BaseDir(d)
 	}
-	right := sDim.Render(fmt.Sprintf("sesi %d/%d · %s · %s", idx+1, n, scope, follow))
+	right := sDim.Render(fmt.Sprintf("session %d/%d · %s · %s", idx+1, n, scope, follow))
 	line1 := left
 	if gap := w - lipgloss.Width(left) - lipgloss.Width(right); gap > 1 {
 		line1 += strings.Repeat(" ", gap) + right
@@ -124,7 +124,7 @@ func (m *model) header(s *store.Session, idx, n, w int) string {
 			tabs = append(tabs, sDim.Render(" "+t+" "))
 		}
 	}
-	// legenda model
+	// model legend
 	var legend []string
 	for _, st := range s.StatsOrdered() {
 		legend = append(legend, mc(st.Model, "■ ")+sText.Render(format.PrettyModel(st.Model))+sDim.Render(" · "+rolesSummary(st)))
@@ -137,7 +137,7 @@ func (m *model) header(s *store.Session, idx, n, w int) string {
 	return fit(line1, w) + "\n" + fit(line2, w) + "\n" + rule
 }
 
-// rolesSummary: tiga peran teratas pemakai model st (urut jumlah pesan), sisanya "+N".
+// rolesSummary: the top three roles using model st (by message count); the rest as "+N".
 func rolesSummary(st *store.ModelStat) string {
 	type roleCount struct {
 		role  string
@@ -151,7 +151,7 @@ func rolesSummary(st *store.ModelStat) string {
 		if rs[i].count != rs[j].count {
 			return rs[i].count > rs[j].count
 		}
-		return rs[i].role < rs[j].role // stabil: iterasi map acak
+		return rs[i].role < rs[j].role // stable: map iteration order is random
 	})
 	var names []string
 	for i, r := range rs {
@@ -165,6 +165,6 @@ func rolesSummary(st *store.ModelStat) string {
 }
 
 func (m *model) footer(w int) string {
-	keys := "1-4/tab tampilan · [ ] ganti sesi · f follow · j/k scroll · q keluar"
+	keys := "1-4/tab view · [ ] switch session · f follow · j/k scroll · q quit"
 	return sDim.Render(fit(keys, w))
 }

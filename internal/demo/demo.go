@@ -1,5 +1,5 @@
-// Package demo memutar sesi Claude Code palsu (hooks + transcript) di folder
-// sementara, supaya dashboard bisa dicoba tanpa menjalankan Claude Code.
+// Package demo replays a fake Claude Code session (hooks + transcript) in a temporary
+// folder, so the dashboard can be tried without running Claude Code.
 package demo
 
 import (
@@ -19,10 +19,10 @@ const (
 	haikuModel = "claude-haiku-5-5"
 )
 
-// Run menjalankan demo.
+// Run runs the demo.
 //
-//	ccwatch demo                  putar live
-//	ccwatch demo --snapshot 140x45  cetak satu frame (untuk tes); --tab N memilih tab (0-3)
+//	ccwatch demo                  play live
+//	ccwatch demo --snapshot 140x45  print a single frame (for tests); --tab N picks the tab (0-3)
 func Run(args []string) error {
 	snapshot := argValue(args, "--snapshot")
 	tab := 0
@@ -56,7 +56,7 @@ func Run(args []string) error {
 	return ui.Run(store.Options{})
 }
 
-// argValue: nilai argumen sesudah flag name ("" kalau tidak ada). Argumen tak dikenal diabaikan.
+// argValue: the argument after flag name ("" if absent). Unknown arguments are ignored.
 func argValue(args []string, name string) string {
 	for i, a := range args {
 		if a == name && i+1 < len(args) {
@@ -66,23 +66,23 @@ func argValue(args []string, name string) string {
 	return ""
 }
 
-// setupDemoConfig mengarahkan ccwatch ke folder sementara dan menyiapkan settings + subagent contoh.
+// setupDemoConfig points ccwatch at a temporary folder and prepares settings + sample subagents.
 func setupDemoConfig(tmp string) error {
 	os.Setenv("CCWATCH_DIR", tmp)
 	os.Setenv("CLAUDE_CONFIG_DIR", tmp)
 	if err := os.WriteFile(filepath.Join(tmp, "settings.json"), []byte(`{"advisorModel":"claude-opus-5-5"}`), 0o644); err != nil {
 		return err
 	}
-	// subagent terkonfigurasi yang tidak dipanggil di demo → tampil sebagai "siap"
+	// configured subagent that isn't called in the demo → shown as "ready"
 	if err := os.MkdirAll(filepath.Join(tmp, "agents"), 0o755); err != nil {
 		return err
 	}
-	reviewer := "---\nname: reviewer\ndescription: Review perubahan kode sebelum commit\nmodel: sonnet\n---\n"
+	reviewer := "---\nname: reviewer\ndescription: Review code changes before committing\nmodel: sonnet\n---\n"
 	return os.WriteFile(filepath.Join(tmp, "agents", "reviewer.md"), []byte(reviewer), 0o644)
 }
 
-// simulator menulis event hook dan transcript palsu. Dalam mode fake, waktu
-// tidak benar-benar menunggu: jam virtual dimajukan.
+// simulator writes fake hook events and transcripts. In fake mode, time
+// doesn't actually wait: a virtual clock is advanced.
 type simulator struct {
 	dir, sid, cwd, transcript string
 	fake                      bool
@@ -123,7 +123,7 @@ func (d *simulator) appendJSON(path string, v any) {
 	f.Close()
 }
 
-// ev menulis satu event hook ke events.jsonl.
+// ev writes one hook event to events.jsonl.
 func (d *simulator) ev(name string, extra map[string]any) {
 	e := map[string]any{
 		"session_id": d.sid, "transcript_path": d.transcript, "cwd": d.cwd,
@@ -140,7 +140,7 @@ func (d *simulator) subPath(agent string) string {
 	return filepath.Join(strings.TrimSuffix(d.transcript, ".jsonl"), "subagents", "agent-"+agent+".jsonl")
 }
 
-// msg menulis satu pesan assistant ke transcript (agent "" = lead).
+// msg writes one assistant message to the transcript (agent "" = lead).
 func (d *simulator) msg(agent, model string, in, out int, blocks []map[string]any, usageExtra map[string]any) {
 	d.n++
 	for i, b := range blocks {
@@ -168,7 +168,7 @@ func (d *simulator) msg(agent, model string, in, out int, blocks []map[string]an
 func toolBlock(name string) map[string]any { return map[string]any{"type": "tool_use", "name": name} }
 func textBlock() map[string]any            { return map[string]any{"type": "text", "text": "…"} }
 
-// advisor: lead memanggil advisor (opus) dengan in/out token tertentu.
+// advisor: the lead calls the advisor (opus) with the given in/out tokens.
 func (d *simulator) advisor(in, out int) {
 	d.msg("", leadModel, 900, 60,
 		[]map[string]any{{"type": "server_tool_use", "name": "advisor", "input": map[string]any{}}, textBlock()},
@@ -194,8 +194,8 @@ func (d *simulator) subStop(agent, typ string) {
 		"agent_transcript_path": d.subPath(agent)})
 }
 
-// play memutar seluruh skenario: prompt lama dengan slash command, prompt kedua dengan
-// advisor + tiga subagent haiku, lalu lead menulis migrasi dan menjalankan test.
+// play runs the whole scenario: an earlier prompt with a slash command, a second prompt with
+// the advisor + three haiku subagents, then the lead writes a migration and runs the tests.
 func (d *simulator) play() {
 	d.ev("SessionStart", map[string]any{"source": "startup", "model": leadModel})
 	d.wait(1)
@@ -206,7 +206,7 @@ func (d *simulator) play() {
 	d.auditTail()
 }
 
-// previousPrompt: prompt sebelumnya, skill lewat slash command.
+// previousPrompt: the earlier prompt, with a skill via slash command.
 func (d *simulator) previousPrompt() {
 	d.ev("UserPromptSubmit", map[string]any{"prompt": "/code-tour internal/leave"})
 	d.wait(1)
@@ -215,25 +215,25 @@ func (d *simulator) previousPrompt() {
 	d.wait(1.5)
 }
 
-// startTask: prompt saat ini; lead membaca kode lalu minta saran advisor.
+// startTask: the current prompt; the lead reads code, then asks the advisor.
 func (d *simulator) startTask() {
-	d.ev("UserPromptSubmit", map[string]any{"prompt": "tambah migrasi carry-over cuti + 1 test, cek semua call site LeaveBalance"})
+	d.ev("UserPromptSubmit", map[string]any{"prompt": "add leave carry-over migration + 1 test, check all LeaveBalance call sites"})
 	d.wait(2)
 	d.leadTool("Read", map[string]any{"file_path": "/home/dika/app/internal/leave/service.go"})
 	d.wait(1)
 	d.ev("PostToolUse", map[string]any{"tool_name": "Read"})
 	d.wait(1.5)
-	d.advisor(42000, 820) // sebelum menyusun rencana
+	d.advisor(42000, 820) // before drafting a plan
 	d.wait(2)
 }
 
-// dispatchSubagents: lead mendispatch 3 subagent haiku yang bekerja paralel.
+// dispatchSubagents: the lead dispatches 3 haiku subagents working in parallel.
 func (d *simulator) dispatchSubagents() {
 	d.msg("", leadModel, 1500, 400, []map[string]any{toolBlock("Agent"), toolBlock("Agent"), toolBlock("Agent")}, nil)
 	agents := []struct{ id, typ, desc string }{
 		{"a1f0c2", "search", "petakan struktur repo"},
-		{"b7e913", "grep", "cari call site LeaveBalance"},
-		{"c94d5e", "audit", "audit migrasi di worktree"},
+		{"b7e913", "grep", "find LeaveBalance call sites"},
+		{"c94d5e", "audit", "audit migration in worktree"},
 	}
 	for _, a := range agents {
 		d.ev("PreToolUse", map[string]any{"tool_name": "Agent", "tool_input": map[string]any{
@@ -261,7 +261,7 @@ func (d *simulator) dispatchSubagents() {
 	d.wait(1.5)
 }
 
-// implementAndTest: lead menulis migrasi, test gagal 2x → advisor, lalu selesai.
+// implementAndTest: the lead writes the migration, tests fail 2x → advisor, then done.
 func (d *simulator) implementAndTest() {
 	d.leadTool("Skill", map[string]any{"skill": "golang-testing"})
 	d.ev("PostToolUse", map[string]any{"tool_name": "Skill"})
@@ -278,7 +278,7 @@ func (d *simulator) implementAndTest() {
 	d.wait(1.5)
 	d.ev("PostToolUseFailure", map[string]any{"tool_name": "Bash", "error": "FAIL: TestCarryOver — expected 5, got 0"})
 	d.wait(1)
-	d.advisor(51000, 640) // error yang sama 2x
+	d.advisor(51000, 640) // same error 2x
 	d.wait(1.5)
 	d.msg("a1f0c2", haikuModel, 2800, 900, []map[string]any{textBlock()}, nil)
 	d.subStop("a1f0c2", "search")
@@ -290,13 +290,13 @@ func (d *simulator) implementAndTest() {
 	d.ev("PostToolUse", map[string]any{"tool_name": "Bash"})
 	d.subTool("c94d5e", haikuModel, "Bash", map[string]any{"command": "go vet ./..."})
 	d.wait(1)
-	d.advisor(38000, 300) // sebelum selesai
+	d.advisor(38000, 300) // before finishing
 	d.wait(1.5)
 	d.msg("", leadModel, 1100, 650, []map[string]any{textBlock()}, nil)
 	d.ev("Stop", nil)
 }
 
-// auditTail: subagent audit masih jalan beberapa saat setelah lead selesai.
+// auditTail: the audit subagent keeps running for a while after the lead finishes.
 func (d *simulator) auditTail() {
 	for i := 0; i < 3; i++ {
 		d.wait(2)

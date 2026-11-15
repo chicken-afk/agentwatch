@@ -8,7 +8,7 @@ import (
 	"ccwatch/internal/format"
 )
 
-// transcriptLine: satu baris transcript JSONL Claude Code (hanya field yang dipakai).
+// transcriptLine: one line of a Claude Code JSONL transcript (only the fields we use).
 type transcriptLine struct {
 	Type       string `json:"type"`
 	Timestamp  string `json:"timestamp"`
@@ -27,7 +27,7 @@ type transcriptLine struct {
 	} `json:"message"`
 }
 
-// ingestTranscript memproses satu baris transcript lead (agentID "") atau subagent.
+// ingestTranscript processes one transcript line from the lead (agentID "") or a subagent.
 func (s *Session) ingestTranscript(agentID string, line []byte) {
 	var m transcriptLine
 	if json.Unmarshal(line, &m) != nil {
@@ -50,7 +50,7 @@ func (s *Session) ingestTranscript(agentID string, line []byte) {
 	}
 }
 
-// noteLeadMeta: cwd (sesi tanpa hooks, --recent) dan skill yang dipertahankan setelah compact.
+// noteLeadMeta: cwd (sessions without hooks, --recent) and skills preserved after a compact.
 func (s *Session) noteLeadMeta(m transcriptLine) {
 	if s.Cwd == "" && m.Cwd != "" {
 		s.Cwd = m.Cwd
@@ -68,14 +68,14 @@ func (s *Session) noteLeadMeta(m transcriptLine) {
 	}
 }
 
-// msgCtx: konteks satu pesan assistant yang sedang diproses.
+// msgCtx: context for the assistant message being processed.
 type msgCtx struct {
 	agentID string
 	agent   *Agent // nil = lead
-	role    string // lead | tipe subagent
+	role    string // lead | subagent type
 	model   string
 	t       time.Time
-	first   bool // false kalau message.id ini sudah pernah dihitung
+	first   bool // false if this message.id has already been counted
 }
 
 func (s *Session) ingestAssistant(agentID string, m transcriptLine, t time.Time) {
@@ -97,8 +97,8 @@ func (s *Session) ingestAssistant(agentID string, m transcriptLine, t time.Time)
 		}
 	}
 
-	// Claude Code menulis satu baris per content block dengan message.id sama →
-	// hitung pesan & usage sekali saja per id.
+	// Claude Code writes one line per content block with the same message.id →
+	// count the message & usage only once per id.
 	key := agentID + "|" + m.Message.ID
 	c.first = m.Message.ID == "" || !s.seenMsg[key]
 	if m.Message.ID != "" {
@@ -108,8 +108,8 @@ func (s *Session) ingestAssistant(agentID string, m transcriptLine, t time.Time)
 	var blocks []map[string]any
 	_ = json.Unmarshal(m.Message.Content, &blocks)
 
-	// titik & log advisor ditambahkan paling akhir, setelah model advisor
-	// dikoreksi oleh usage.iterations di bawah
+	// advisor points & log are added last, after the advisor model
+	// has been corrected by usage.iterations below
 	advStart := len(s.Advisor)
 	defer s.flushAdvisorCalls(advStart, c.role)
 
@@ -138,12 +138,12 @@ func (s *Session) ingestAssistant(agentID string, m transcriptLine, t time.Time)
 	s.MainMsgs++
 	s.MainUsage.add(u)
 	if s.Lead != "" && s.Lead != model && s.MainMsgs > 1 {
-		s.log(t, "sys", model, "model lead: "+format.PrettyModel(s.Lead)+" → "+format.PrettyModel(model), false)
+		s.log(t, "sys", model, "lead model: "+format.PrettyModel(s.Lead)+" → "+format.PrettyModel(model), false)
 	}
 	s.Lead = model
 }
 
-// ingestBlock memproses satu content block: pemanggilan tool, skill, dan advisor.
+// ingestBlock processes one content block: tool calls, skills, and the advisor.
 func (s *Session) ingestBlock(c msgCtx, b map[string]any) {
 	bt, _ := b["type"].(string)
 	name, _ := b["name"].(string)
@@ -185,7 +185,7 @@ func (s *Session) ingestBlock(c msgCtx, b map[string]any) {
 	}
 }
 
-// applyAdvisorIterations: usage.iterations (advisor tool) → model & token advisor yang sebenarnya.
+// applyAdvisorIterations: usage.iterations (advisor tool) → the advisor's actual model & tokens.
 func (s *Session) applyAdvisorIterations(iters []advIter, t time.Time) {
 	for _, it := range iters {
 		if n := len(s.Advisor); n > 0 {
@@ -203,11 +203,11 @@ func (s *Session) applyAdvisorIterations(iters []advIter, t time.Time) {
 	}
 }
 
-// flushAdvisorCalls mencatat titik alur dan log untuk panggilan advisor baru (index >= from).
+// flushAdvisorCalls records flow points and log entries for new advisor calls (index >= from).
 func (s *Session) flushAdvisorCalls(from int, role string) {
 	for _, c := range s.Advisor[from:] {
 		s.Points = append(s.Points, point{T: c.T.Add(time.Millisecond), Role: "advisor", Model: c.Model})
-		s.log(c.T, "advisor", c.Model, "advisor dipanggil oleh "+role+afterSuffix(c.After), false)
+		s.log(c.T, "advisor", c.Model, "advisor called by "+role+afterSuffix(c.After), false)
 	}
 }
 
@@ -215,7 +215,7 @@ func afterSuffix(after string) string {
 	if after == "" {
 		return ""
 	}
-	return " (setelah " + after + ")"
+	return " (after " + after + ")"
 }
 
 func countToolUse(blocks []map[string]any) int {

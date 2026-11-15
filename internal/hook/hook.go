@@ -1,5 +1,5 @@
-// Package hook menangani `ccwatch hook`: dipanggil Claude Code di tiap event,
-// meringkas payload, lalu menambahkannya ke events.jsonl.
+// Package hook handles `ccwatch hook`: called by Claude Code on every event,
+// it summarizes the payload and appends it to events.jsonl.
 package hook
 
 import (
@@ -11,11 +11,11 @@ import (
 	"ccwatch/internal/format"
 )
 
-// Run membaca satu payload hook dari stdin. Aturan penting:
-//   - TIDAK pernah menulis ke stdout (untuk SessionStart/UserPromptSubmit,
-//     stdout akan disuntikkan ke konteks Claude).
-//   - Tidak pernah gagal atau panic ke pemanggil dan cepat, supaya tidak
-//     memblok Claude; proses induk selalu exit 0.
+// Run reads one hook payload from stdin. Important rules:
+//   - NEVER writes to stdout (for SessionStart/UserPromptSubmit,
+//     stdout would be injected into Claude's context).
+//   - Never fails or panics to the caller, and is fast, so it never
+//     blocks Claude; the parent process always exits 0.
 func Run(stdin io.Reader) {
 	defer func() { _ = recover() }()
 
@@ -50,8 +50,8 @@ var (
 	}
 )
 
-// Slim membuang bagian besar (isi file, output tool) dan hanya
-// menyimpan field yang dipakai dashboard.
+// Slim drops the large parts (file contents, tool output) and keeps
+// only the fields the dashboard uses.
 func Slim(in map[string]any) map[string]any {
 	out := map[string]any{}
 	copyFields(out, in, eventKeys, 300)
@@ -66,7 +66,7 @@ func Slim(in map[string]any) map[string]any {
 		}
 		out["tool_input"] = slim
 	}
-	// model kadang berupa object di beberapa versi
+	// model is sometimes an object in some versions
 	if m, ok := in["model"].(map[string]any); ok {
 		if id, ok := m["id"].(string); ok {
 			out["model"] = id
@@ -75,7 +75,7 @@ func Slim(in map[string]any) map[string]any {
 	return out
 }
 
-// copyFields menyalin keys dari src ke dst; string dipotong maksimal maxLen.
+// copyFields copies keys from src to dst; strings are truncated to maxLen.
 func copyFields(dst, src map[string]any, keys []string, maxLen int) {
 	for _, k := range keys {
 		v, ok := src[k]

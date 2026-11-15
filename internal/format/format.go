@@ -1,4 +1,4 @@
-// Package format berisi helper pemformatan teks, durasi, dan angka untuk tampilan.
+// Package format holds text, duration, and number formatting helpers for display.
 package format
 
 import (
@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Clip memotong s menjadi maksimal n rune, diakhiri "…" kalau terpotong.
+// Clip truncates s to at most n runes, ending with "…" if cut.
 func Clip(s string, n int) string {
 	r := []rune(s)
 	if len(r) <= n {
@@ -18,12 +18,12 @@ func Clip(s string, n int) string {
 	return string(r[:n-1]) + "…"
 }
 
-// OneLine merapikan whitespace jadi satu baris (maks 200 rune).
+// OneLine collapses whitespace into a single line (max 200 runes).
 func OneLine(s string) string {
 	return Clip(strings.Join(strings.Fields(s), " "), 200)
 }
 
-// Short: 8 karakter pertama dari session id.
+// Short: the first 8 characters of a session id.
 func Short(id string) string {
 	if len(id) > 8 {
 		return id[:8]
@@ -41,7 +41,7 @@ func Dur(d time.Duration) string {
 	case d < time.Hour:
 		return fmt.Sprintf("%dm%02ds", int(d.Minutes()), int(d.Seconds())%60)
 	default:
-		return fmt.Sprintf("%dj%02dm", int(d.Hours()), int(d.Minutes())%60)
+		return fmt.Sprintf("%dh%02dm", int(d.Hours()), int(d.Minutes())%60)
 	}
 }
 
@@ -66,7 +66,7 @@ func Clock(t time.Time) string {
 	return t.Local().Format("15:04:05")
 }
 
-// BaseDir: "~/<nama folder>" untuk ditampilkan ringkas.
+// BaseDir: "~/<folder name>" for compact display.
 func BaseDir(p string) string {
 	if p == "" {
 		return "?"

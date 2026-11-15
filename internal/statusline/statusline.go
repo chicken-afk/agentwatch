@@ -1,5 +1,5 @@
-// Package statusline menangani `ccwatch statusline`: mencetak status line
-// ringkas untuk Claude Code dan mencatat pergantian model lead.
+// Package statusline handles `ccwatch statusline`: it prints a compact
+// status line for Claude Code and records lead model changes.
 package statusline
 
 import (
@@ -42,12 +42,12 @@ func (in input) dir() string {
 	return in.Cwd
 }
 
-// Run dipanggil Claude Code untuk status line. Selain mencetak baris status,
-// ini juga mencatat model lead saat berubah (mis. setelah /model), supaya
-// dashboard tahu model aktif bahkan sebelum ada pesan baru.
+// Run is called by Claude Code for the status line. Besides printing the status line,
+// it also records the lead model when it changes (e.g. after /model), so the
+// dashboard knows the active model even before a new message arrives.
 func Run(stdin io.Reader, stdout io.Writer) {
 	defer func() { _ = recover() }()
-	// stdout status line berupa pipe → paksa warna tetap keluar
+	// status line stdout is a pipe → force colors on anyway
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	raw, _ := io.ReadAll(io.LimitReader(stdin, 4<<20))
@@ -58,7 +58,7 @@ func Run(stdin io.Reader, stdout io.Writer) {
 	fmt.Fprint(stdout, render(in))
 }
 
-// recordModelChange menulis event StatusLine bila model sesi berbeda dari catatan terakhir.
+// recordModelChange writes a StatusLine event when the session's model differs from the last record.
 func recordModelChange(in input) {
 	if in.SessionID == "" || in.Model.ID == "" {
 		return

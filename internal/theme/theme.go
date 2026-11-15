@@ -1,4 +1,4 @@
-// Package theme: palet warna dan style lipgloss yang dipakai dashboard dan status line.
+// Package theme: color palette and lipgloss styles used by the dashboard and the status line.
 package theme
 
 import (
@@ -30,7 +30,7 @@ var (
 	Yellow = lipgloss.NewStyle().Foreground(ColorYellow)
 )
 
-// ModelColor: warna per keluarga model (opus ungu, sonnet oranye, haiku biru, fable hijau).
+// ModelColor: color per model family (opus purple, sonnet orange, haiku blue, fable green).
 func ModelColor(m string) lipgloss.Color {
 	switch format.ModelFamily(m) {
 	case "opus":
@@ -47,12 +47,12 @@ func ModelColor(m string) lipgloss.Color {
 	return Other
 }
 
-// Model mewarnai text dengan warna keluarga model m.
+// Model colors text with the color of model m's family.
 func Model(m, text string) string {
 	return lipgloss.NewStyle().Foreground(ModelColor(m)).Render(text)
 }
 
-// ModelBold sama seperti Model, tebal.
+// ModelBold is like Model, but bold.
 func ModelBold(m, text string) string {
 	return lipgloss.NewStyle().Foreground(ModelColor(m)).Bold(true).Render(text)
 }

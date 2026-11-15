@@ -13,7 +13,7 @@ import (
 	"ccwatch/internal/ui"
 )
 
-// watchFlags: hasil parsing flag `ccwatch watch`.
+// watchFlags: parsed flags for `ccwatch watch`.
 type watchFlags struct {
 	session  string
 	advisors advisorFlag
@@ -25,23 +25,23 @@ type watchFlags struct {
 func runWatch(args []string) error {
 	fs := flag.NewFlagSet("watch", flag.ExitOnError)
 	var f watchFlags
-	fs.StringVar(&f.session, "session", "", "kunci ke session id tertentu (prefix boleh)")
-	fs.Var(&f.advisors, "advisor", "label model advisor kalau tidak terbaca dari settings: `opus` (semua sesi, atau hanya --session kalau di-set) atau `<session-id>=opus` (per sesi, prefix boleh, bisa diulang)")
-	fs.DurationVar(&f.recent, "recent", 0, "ikut tampilkan transcript yang aktif dalam durasi ini walau tanpa hooks (mis. 30m)")
-	fs.BoolVar(&f.all, "all", false, "tampilkan sesi dari semua folder (default: hanya sesi di folder saat ini)")
-	fs.StringVar(&f.dir, "dir", "", "hanya tampilkan sesi di folder ini (default: folder saat ini)")
+	fs.StringVar(&f.session, "session", "", "pin to a specific session id (prefix allowed)")
+	fs.Var(&f.advisors, "advisor", "advisor model label when it cannot be read from settings: `opus` (all sessions, or only --session if set) or `<session-id>=opus` (per session, prefix allowed, repeatable)")
+	fs.DurationVar(&f.recent, "recent", 0, "also show transcripts active within this duration, even without hooks (e.g. 30m)")
+	fs.BoolVar(&f.all, "all", false, "show sessions from all folders (default: only sessions in the current folder)")
+	fs.StringVar(&f.dir, "dir", "", "only show sessions in this folder (default: current folder)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	return ui.Run(f.options())
 }
 
-// options menerjemahkan flag ke store.Options.
+// options converts the flags into store.Options.
 func (f watchFlags) options() store.Options {
 	o := store.Options{Session: f.session, Recent: f.recent, AdvisorBySession: f.advisors.bySession}
 
-	// default: hanya sesi di folder tempat ccwatch dijalankan.
-	// --all mematikan filter; --session (sesi eksplisit) juga tidak difilter folder.
+	// default: only sessions in the folder where ccwatch was started.
+	// --all disables the filter; --session (an explicit session) isn't folder-filtered either.
 	if !f.all && (f.session == "" || f.dir != "") {
 		o.Dir = f.watchDir()
 	}
@@ -51,7 +51,7 @@ func (f watchFlags) options() store.Options {
 			o.Advisor = g
 			return o
 		}
-		// --session + --advisor opus → label hanya untuk sesi itu
+		// --session + --advisor opus → label only for that session
 		if o.AdvisorBySession == nil {
 			o.AdvisorBySession = map[string]string{}
 		}
@@ -62,7 +62,7 @@ func (f watchFlags) options() store.Options {
 	return o
 }
 
-// watchDir: folder filter sesi (--dir atau folder saat ini), path absolut dengan symlink di-resolve.
+// watchDir: the session filter folder (--dir or the current folder), as an absolute path with symlinks resolved.
 func (f watchFlags) watchDir() string {
 	d := f.dir
 	if d == "" {
@@ -77,7 +77,7 @@ func (f watchFlags) watchDir() string {
 	return pathmatch.Real(d)
 }
 
-// advisorFlag: --advisor bisa diulang; "opus" = global, "<id>=opus" = per sesi.
+// advisorFlag: --advisor can be repeated; "opus" = global, "<id>=opus" = per session.
 type advisorFlag struct {
 	global    string
 	bySession map[string]string
@@ -98,7 +98,7 @@ func (a *advisorFlag) Set(v string) error {
 		}
 		id, mdl = strings.TrimSpace(id), strings.TrimSpace(mdl)
 		if id == "" || mdl == "" {
-			return fmt.Errorf("format --advisor salah: %q (pakai <session-id>=<model>)", part)
+			return fmt.Errorf("invalid --advisor format: %q (use <session-id>=<model>)", part)
 		}
 		if a.bySession == nil {
 			a.bySession = map[string]string{}

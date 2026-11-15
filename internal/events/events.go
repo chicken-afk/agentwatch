@@ -1,4 +1,4 @@
-// Package events menulis log event ccwatch (events.jsonl) yang dibaca dashboard.
+// Package events writes the ccwatch event log (events.jsonl) that the dashboard reads.
 package events
 
 import (
@@ -7,11 +7,11 @@ import (
 	"ccwatch/internal/config"
 )
 
-// maxSize: di atas ukuran ini file dirotasi ke events.jsonl.1.
+// maxSize: above this size the file is rotated to events.jsonl.1.
 const maxSize = 20 << 20
 
-// Append menambahkan satu record JSON (tanpa newline) ke events.jsonl.
-// Record ditulis dengan satu write supaya aman untuk append bersamaan.
+// Append adds one JSON record (without newline) to events.jsonl.
+// The record is written in a single write so concurrent appends are safe.
 func Append(record []byte) error {
 	dir := config.DataDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {

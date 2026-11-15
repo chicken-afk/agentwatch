@@ -10,15 +10,15 @@ import (
 	"ccwatch/internal/format"
 )
 
-// hookEvent: satu baris events.jsonl (ditulis `ccwatch hook`) beserta konteks
-// pelaku (lead atau subagent) yang menjalankannya.
+// hookEvent: one events.jsonl line (written by `ccwatch hook`) plus the context
+// of the actor (lead or subagent) that ran it.
 type hookEvent struct {
 	raw       map[string]any
 	name      string
 	t         time.Time
 	agentID   string
 	toolInput map[string]any
-	who, mdl  string // pelaku & modelnya, untuk entri log
+	who, mdl  string // actor & its model, for log entries
 }
 
 func (e hookEvent) str(k string) string { return str(e.raw, k) }
@@ -88,10 +88,10 @@ func (s *Session) applyHook(e hookEvent) {
 		s.Turns++
 		s.Status = "idle"
 		s.CurrentTool = ""
-		s.log(e.t, "lead", s.Lead, "giliran selesai (turn #"+strconv.Itoa(s.Turns)+")", false)
+		s.log(e.t, "lead", s.Lead, "turn #"+strconv.Itoa(s.Turns)+" finished", false)
 	case "PreCompact":
 		s.Compacts++
-		s.log(e.t, "sys", "", "compact konteks ("+e.str("trigger")+")", false)
+		s.log(e.t, "sys", "", "context compact ("+e.str("trigger")+")", false)
 	case "Notification":
 		s.log(e.t, "sys", "", "notif: "+format.OneLine(e.str("message")), false)
 	}
@@ -115,17 +115,17 @@ func (s *Session) onStatusLine(e hookEvent) {
 	old := s.Lead
 	s.Lead = m
 	if old != "" {
-		s.log(e.t, "sys", m, "model lead diganti: "+format.PrettyModel(old)+" → "+format.PrettyModel(m), false)
+		s.log(e.t, "sys", m, "lead model changed: "+format.PrettyModel(old)+" → "+format.PrettyModel(m), false)
 	}
 }
 
 func (s *Session) onUserPrompt(e hookEvent) {
 	prompt := e.str("prompt")
 	if kind := systemPrompt(prompt); kind != "" {
-		// notifikasi otomatis (background task selesai, hand-back subagent):
-		// lanjutan task yang sama, bukan prompt baru dari user
+		// automatic notification (background task done, subagent hand-back):
+		// a continuation of the same task, not a new prompt from the user
 		s.Status = "working"
-		s.log(e.t, "sys", "", "notifikasi "+kind+" (lanjutan prompt #"+strconv.Itoa(s.Prompts)+")", false)
+		s.log(e.t, "sys", "", "notification "+kind+" (continues prompt #"+strconv.Itoa(s.Prompts)+")", false)
 		return
 	}
 	s.Prompts++
@@ -178,7 +178,7 @@ func (s *Session) onToolFailure(e hookEvent) {
 		s.CurrentTool = ""
 	}
 	s.Failures++
-	msg := e.str("tool_name") + " gagal"
+	msg := e.str("tool_name") + " failed"
 	if er := e.str("error"); er != "" {
 		msg += ": " + format.OneLine(er)
 	}
@@ -198,14 +198,14 @@ func (s *Session) onSubagentStart(e hookEvent) {
 		a.Desc, a.ReqModel = q[0].desc, q[0].model
 		s.pendingDesc[typ] = q[1:]
 	}
-	s.log(e.t, typ, a.Model(), "subagent mulai"+descSuffix(a.Desc), false)
+	s.log(e.t, typ, a.Model(), "subagent started"+descSuffix(a.Desc), false)
 }
 
 func (s *Session) onSubagentStop(e hookEvent) {
 	typ := e.str("agent_type")
 	p := e.str("agent_transcript_path")
 	if _, known := s.Agents[e.agentID]; !known && typ == "" {
-		// summarizer internal Claude Code: SubagentStop tanpa tipe & tanpa transcript
+		// Claude Code internal summarizer: SubagentStop with no type & no transcript
 		if _, err := os.Stat(p); p == "" || err != nil {
 			return
 		}
@@ -219,7 +219,7 @@ func (s *Session) onSubagentStop(e hookEvent) {
 	if p != "" {
 		a.Transcript = p
 	}
-	s.log(e.t, a.Label(), a.Model(), "subagent selesai · "+format.Dur(a.End.Sub(a.Start))+" · "+strconv.Itoa(a.Tools)+" tool", false)
+	s.log(e.t, a.Label(), a.Model(), "subagent done · "+format.Dur(a.End.Sub(a.Start))+" · "+strconv.Itoa(a.Tools)+" tools", false)
 }
 
 func descSuffix(d string) string {
@@ -229,7 +229,7 @@ func descSuffix(d string) string {
 	return ": " + d
 }
 
-// toolSummary: ringkasan satu baris "Tool: argumen utama".
+// toolSummary: a one-line summary "Tool: main argument".
 func toolSummary(tool string, ti map[string]any) string {
 	arg := ""
 	for _, k := range []string{"command", "file_path", "pattern", "path", "url", "query", "description", "skill", "notebook_path"} {

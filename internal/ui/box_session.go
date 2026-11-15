@@ -21,7 +21,7 @@ func (m *model) leadBox(s *store.Session, w int) string {
 	lines := []string{
 		kv("status", status),
 		kv("prompt", sDim.Render(fmt.Sprintf("#%d ", s.Prompts))+prompt),
-		kv("aktivit", fmt.Sprintf("%s pesan · %s tool · %s turn · %s subagent",
+		kv("activity", fmt.Sprintf("%s msgs · %s tools · %s turns · %s subagents",
 			sText.Render(strconv.Itoa(s.MainMsgs)), sText.Render(strconv.Itoa(s.MainTools)), sText.Render(strconv.Itoa(s.Turns)),
 			sText.Render(strconv.Itoa(len(s.Agents))))+failSuffix(s.Failures)),
 		kv("token", fmt.Sprintf("in %s · out %s · cache read %s · write %s",
@@ -42,7 +42,7 @@ func failSuffix(n int) string {
 	if n == 0 {
 		return ""
 	}
-	return sRed.Render(fmt.Sprintf(" · %d gagal", n))
+	return sRed.Render(fmt.Sprintf(" · %d failed", n))
 }
 
 func (m *model) usageBox(s *store.Session, w int) string {
@@ -52,7 +52,7 @@ func (m *model) usageBox(s *store.Session, w int) string {
 		totalOut += st.Usage.Out
 	}
 	lines := []string{sDim.Render(fmt.Sprintf("%-13s %-24s %6s %8s %8s %9s %8s  %-16s %s",
-		"MODEL", "PERAN", "PESAN", "IN", "OUT", "CACHE R", "CACHE W", "PORSI OUTPUT", "AKTIF"))}
+		"MODEL", "ROLE", "MSGS", "IN", "OUT", "CACHE R", "CACHE W", "OUTPUT SHARE", "ACTIVE"))}
 	for _, st := range stats {
 		frac := 0.0
 		if totalOut > 0 {
@@ -66,9 +66,9 @@ func (m *model) usageBox(s *store.Session, w int) string {
 				sDim.Render(format.Clock(st.First)+"–"+format.Clock(st.Last)))
 	}
 	if len(stats) == 0 {
-		lines = append(lines, sDim.Render("belum ada data model"))
+		lines = append(lines, sDim.Render("no model data yet"))
 	}
-	return box(sBold.Render("PEMAKAIAN MODEL"), cBorder, w, lines, 0)
+	return box(sBold.Render("MODEL USAGE"), cBorder, w, lines, 0)
 }
 
 func logLine(e store.LogEntry, w int) string {
@@ -96,15 +96,15 @@ func (m *model) logBox(s *store.Session, w, rows int) string {
 	}
 	if len(s.Log) == 0 {
 		if s.HasHooks {
-			lines = []string{sDim.Render("menunggu event…")}
+			lines = []string{sDim.Render("waiting for events…")}
 		} else {
-			lines = []string{sYel.Render("hooks belum terpasang untuk sesi ini — jalankan `ccwatch install` untuk log live")}
+			lines = []string{sYel.Render("hooks not installed for this session — run `ccwatch install` for a live log")}
 		}
 	}
 	return box(sBold.Render("SESSION LOG"), cBorder, w, lines, rows)
 }
 
-// logView: tab 3, semua event sesi.
+// logView: tab 3, every session event.
 func (m *model) logView(s *store.Session, w, h int) string {
 	var lines []string
 	for _, e := range s.Log {

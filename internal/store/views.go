@@ -4,7 +4,7 @@ import (
 	"sort"
 )
 
-// Flow menggabungkan titik berurutan dengan role+model sama menjadi satu langkah.
+// Flow merges consecutive points with the same role+model into one step.
 func (s *Session) Flow() []FlowStep {
 	pts := make([]point, len(s.Points))
 	copy(pts, s.Points)
@@ -22,7 +22,7 @@ func (s *Session) Flow() []FlowStep {
 	return out
 }
 
-// StatsOrdered: statistik per model, urut dari yang pertama dipakai.
+// StatsOrdered: per-model stats, ordered by first use.
 func (s *Session) StatsOrdered() []*ModelStat {
 	var out []*ModelStat
 	for _, m := range s.Stats {
@@ -32,7 +32,7 @@ func (s *Session) StatsOrdered() []*ModelStat {
 	return out
 }
 
-// AgentsOrdered: subagent yang sedang jalan dulu, lalu yang terbaru dimulai.
+// AgentsOrdered: running subagents first, then the most recently started.
 func (s *Session) AgentsOrdered() []*Agent {
 	var out []*Agent
 	for _, id := range s.AgentOrder {
@@ -48,7 +48,7 @@ func (s *Session) AgentsOrdered() []*Agent {
 	return out
 }
 
-// Running: jumlah subagent yang sedang jalan.
+// Running: the number of subagents currently running.
 func (s *Session) Running() int {
 	n := 0
 	for _, a := range s.Agents {
@@ -59,7 +59,7 @@ func (s *Session) Running() int {
 	return n
 }
 
-// AdvisorUsage: total token semua panggilan advisor di sesi ini.
+// AdvisorUsage: total tokens across all advisor calls in this session.
 func (s *Session) AdvisorUsage() Usage {
 	var total Usage
 	for _, c := range s.Advisor {
