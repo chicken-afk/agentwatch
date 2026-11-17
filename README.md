@@ -24,6 +24,8 @@ It works with **Claude Code, Codex CLI, Gemini CLI, OpenCode and oh-my-pi (omp)*
 | **3 log** | All events: prompts, tool calls, failures, subagent dispatches, advisor, compact |
 | **4 subagents** | Table of every subagent in the session, plus configured subagents that haven't been called yet (status `ready`) |
 
+On launch a short animation (about 2 s) scans the agentwatch logo in the agents' colors while sessions load in the background; any key skips it.
+
 Keys: `1-4`/`tab` switch view · `[` `]` switch session · `f` follow the most active session · `j/k`/mouse wheel to scroll · `q` quit.
 
 Colors per model family: opus purple, sonnet orange, haiku blue, fable green, GPT/Codex cyan, Gemini pink. The header and LEAD box show which agent a session belongs to.
@@ -167,6 +169,7 @@ agentwatch --advisor opus         # advisor label when it was set via the --advi
 agentwatch --recent 30m           # also show sessions active in the last 30 minutes, even without hooks installed
 agentwatch --agent omp            # only omp sessions (claude, codex, gemini, opencode, omp, or a hook --agent name; comma-separated)
 agentwatch --window 72h           # load Codex/Gemini/OpenCode/omp sessions from the last 72 hours (default 24h)
+agentwatch --no-splash         # skip the startup animation (or set AGENTWATCH_NO_SPLASH=1)
 ```
 
 ### Per-session advisor labels

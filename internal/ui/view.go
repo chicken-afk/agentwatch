@@ -20,6 +20,9 @@ func (m *model) View() string {
 	if w == 0 {
 		w, h = 120, 40
 	}
+	if m.splash {
+		return splashView(w, h, time.Since(m.splashStart))
+	}
 	s, idx, n := m.current()
 	if s == nil {
 		return m.emptyView(w, h)

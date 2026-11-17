@@ -30,15 +30,34 @@ type model struct {
 	refreshedAt time.Time
 	scroll      int
 	frame       int
+
+	splash      bool // startup animation still playing
+	splashStart time.Time
 }
 
-func tick() tea.Cmd {
-	return tea.Tick(tickEvery, func(t time.Time) tea.Msg { return tickMsg(t) })
+func tick(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
-// Run opens the live dashboard until the user quits.
-func Run(o store.Options) error {
-	m := &model{st: store.New(o), pinned: o.Session}
+// nextTick: ~30 fps while the splash plays, the normal pace afterwards.
+func (m *model) nextTick() tea.Cmd {
+	if m.splash {
+		return tick(splashTick)
+	}
+	return tick(tickEvery)
+}
+
+// splashDone ends the splash once it has played out.
+func (m *model) splashDone(now time.Time) {
+	if m.splash && now.Sub(m.splashStart) >= splashTotal {
+		m.splash = false
+	}
+}
+
+// Run opens the live dashboard until the user quits. With splash, the startup
+// animation plays first (any key skips it); sessions load in the background meanwhile.
+func Run(o store.Options, splash bool) error {
+	m := &model{st: store.New(o), pinned: o.Session, splash: splash, splashStart: time.Now()}
 	m.st.Refresh()
 	_, err := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
@@ -51,7 +70,7 @@ func Snapshot(o store.Options, w, h, tab int) string {
 	return m.View()
 }
 
-func (m *model) Init() tea.Cmd { return tick() }
+func (m *model) Init() tea.Cmd { return m.nextTick() }
 
 // spin: spinner frame, advancing every ~300ms even though the UI ticks every 100ms.
 func (m *model) spin() string { return spinFrames[(m.frame/3)%len(spinFrames)] }
@@ -65,11 +84,18 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshedAt = now
 			m.st.Refresh()
 		}
+		m.splashDone(time.Time(msg))
 		m.frame++
-		return m, tick()
+		return m, m.nextTick()
 	case tea.MouseMsg:
-		m.onMouse(msg)
+		if !m.splash {
+			m.onMouse(msg)
+		}
 	case tea.KeyMsg:
+		if m.splash && msg.String() != "ctrl+c" {
+			m.splash = false // any key skips the animation
+			return m, nil
+		}
 		return m, m.onKey(msg.String())
 	}
 	return m, nil
