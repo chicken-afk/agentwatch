@@ -15,6 +15,8 @@ const usage = `agentwatch — live dashboard for AI coding agents (Claude Code, 
   agentwatch install [--statusline] [--no-rules]   hooks + skill rules in ~/.claude/CLAUDE.md
   agentwatch uninstall                              remove hooks + skill rules
   agentwatch rules [--remove | --show]              skill rules only
+  agentwatch update [--check]  update to the latest release (--source: build main from source)
+  agentwatch version          version + the git commit it was built from
   agentwatch demo             try the dashboard with fake data
   agentwatch hook             (called by Claude Code)
   agentwatch hook --agent <name>   events from any other tool (JSON on stdin, same fields as Claude hooks)

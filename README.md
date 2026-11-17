@@ -80,38 +80,45 @@ Steps 1–5 are for Claude Code; step 6 covers the other agents.
 
 ## Installation
 
-### Use a prebuilt binary
+### Install script (macOS & Linux, no Go needed)
 ```bash
-# macOS Apple Silicon (pick the one for your OS/architecture)
-mkdir -p ~/.local/bin
-cp dist/agentwatch-darwin-arm64 ~/.local/bin/agentwatch
-chmod +x ~/.local/bin/agentwatch
-xattr -d com.apple.quarantine ~/.local/bin/agentwatch 2>/dev/null   # macOS: clear the Gatekeeper quarantine
+curl -fsSL https://raw.githubusercontent.com/chicken-afk/agentwatch/main/install.sh | sh
 ```
-Make sure `~/.local/bin` is on your `PATH`.
+- Downloads the latest release for your system (macOS/Linux, Intel/ARM), verifies its SHA-256 checksum, and installs it to `~/.local/bin/agentwatch`.
+- If `~/.local/bin` isn't on your `PATH` yet, it prints the one line to add for your shell.
+- `AGENTWATCH_INSTALL_DIR=/usr/local/bin` installs somewhere else; `AGENTWATCH_VERSION=v0.2.0` picks a specific release.
+- Then run `agentwatch`. Using Claude Code? Also run `agentwatch install` once (see below).
 
-### Or build it yourself (Go 1.22+)
+### Or with `go install` (Go 1.22+)
 ```bash
-go mod tidy
+go install github.com/chicken-afk/agentwatch@latest
+```
+This puts the binary in `$(go env GOPATH)/bin` (usually `~/go/bin`), which is often **not** on your `PATH` on macOS. If `agentwatch` then says `command not found`, add it once:
+```bash
+echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.zshrc && . ~/.zshrc
+```
+
+### Or build it yourself
+```bash
 go build -o ~/.local/bin/agentwatch .
-```
-
-### Or with `go install`
-```bash
-go install github.com/chicken-afk/agentwatch@latest   # installs to $(go env GOPATH)/bin/agentwatch
 ```
 
 ### Updating
 ```bash
-agentwatch update            # download the latest main from GitHub, build it, replace this binary
+agentwatch update            # download the latest release and replace this binary
 agentwatch update --check    # only check whether a newer version exists
 agentwatch version           # version + the git commit it was built from
 ```
-- There are no prebuilt releases, so `update` needs **git** and **Go** on your `PATH`. It keeps its own clone of the repository in your cache folder (`~/Library/Caches/agentwatch/src` on macOS, `~/.cache/agentwatch/src` on Linux; `AGENTWATCH_SRC` overrides) and resets it to the remote branch every time, so don't edit files there.
-- The binary is replaced in place (the same path `agentwatch` runs from), so installed hooks keep working. Restart open dashboards to use the new version.
-- `--branch <name>` updates to another branch, `--force` rebuilds even when already up to date.
-- `--src <folder>` builds your own checkout instead (e.g. `agentwatch update --src ~/src/agentwatch`): it fast-forwards the checkout when its branch tracks a remote, then builds it as it is, including uncommitted changes.
-- `agentwatch update` only exists in builds that already have it. If yours says `unknown command: update`, build once by hand (`go build -o ~/.local/bin/agentwatch .`) and use `agentwatch update` from then on.
+- `update` downloads the latest release from GitHub, verifies its checksum, and swaps the binary in place (same path, so installed hooks keep working). Restart open dashboards to use the new version.
+- `--force` reinstalls even when already up to date.
+- Building from source instead (needs **git** and **Go**): `--source` builds the latest `main`, `--branch <name>` another branch, `--src <folder>` your own checkout (fast-forwarded when it tracks a remote, then built as it is, including uncommitted changes). Source builds use a clone in your cache folder (`~/Library/Caches/agentwatch/src` on macOS, `~/.cache/agentwatch/src` on Linux; `AGENTWATCH_SRC` overrides).
+- Builds from source report their version as `dev`, so `update` always offers the latest release to them.
+
+### Releasing (maintainers)
+Push a version tag and GitHub Actions builds the binaries for macOS and Linux (amd64/arm64) with [GoReleaser](https://goreleaser.com) and publishes them as a GitHub Release with `checksums.txt`:
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
 
 ### Install the hooks (Claude Code only)
 Codex, Gemini CLI, OpenCode and omp need no install: just run `agentwatch`.

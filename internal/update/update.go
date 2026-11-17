@@ -26,12 +26,15 @@ const DefaultRepo = "https://github.com/chicken-afk/agentwatch.git"
 
 // Options for one update run.
 type Options struct {
-	Repo   string // git URL (DefaultRepo if empty)
-	Branch string // branch to build ("main" if empty)
-	Src    string // your own checkout to build from; "" = the managed clone
-	Check  bool   // only report whether an update is available
-	Force  bool   // rebuild even if already up to date
-	Out    io.Writer
+	Version     string // the running version ("dev" for builds from source)
+	ReleaseRepo string // GitHub owner/name with the releases (DefaultReleaseRepo if empty)
+	Source      bool   // build from source instead of downloading the latest release
+	Repo        string // git URL for source builds (DefaultRepo if empty)
+	Branch      string // branch for source builds; setting it implies Source
+	Src         string // your own checkout to build from; "" = the managed clone
+	Check       bool   // only report whether an update is available
+	Force       bool   // update even if already up to date
+	Out         io.Writer
 }
 
 // Revision: the git commit this binary was built from ("" if unknown) and whether
@@ -69,11 +72,24 @@ func Run(o Options) error {
 	if o.Repo == "" {
 		o.Repo = DefaultRepo
 	}
-	if o.Branch == "" {
-		o.Branch = "main"
+	if o.ReleaseRepo == "" {
+		o.ReleaseRepo = DefaultReleaseRepo
 	}
 	if o.Out == nil {
 		o.Out = os.Stdout
+	}
+	if o.Branch != "" {
+		o.Source = true
+	} else {
+		o.Branch = "main"
+	}
+	// default: the latest prebuilt release (no Go or git needed)
+	if !o.Source && o.Src == "" {
+		err := o.runRelease()
+		if !errors.Is(err, errNoRelease) {
+			return err
+		}
+		fmt.Fprintln(o.Out, "No release published yet: building the latest main from source instead.")
 	}
 	if _, err := exec.LookPath("git"); err != nil {
 		return errors.New("git is not installed (needed to download the source)")

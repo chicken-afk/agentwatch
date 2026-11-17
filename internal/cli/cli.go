@@ -13,7 +13,9 @@ import (
 	"github.com/chicken-afk/agentwatch/internal/update"
 )
 
-const Version = "0.1.0"
+// Version is set at build time for releases (-ldflags -X …/internal/cli.Version=0.2.0);
+// builds from source report "dev".
+var Version = "dev"
 
 type command func(args []string) error
 
@@ -44,18 +46,20 @@ func runVersion([]string) error {
 	return nil
 }
 
-// runUpdate: `agentwatch update [--check] [--force] [--branch main] [--src <checkout>]`.
+// runUpdate: `agentwatch update [--check] [--force] [--source | --branch <b> | --src <checkout>]`.
 func runUpdate(args []string) error {
 	fs := flag.NewFlagSet("update", flag.ExitOnError)
 	var o update.Options
 	fs.BoolVar(&o.Check, "check", false, "only check whether a newer version exists")
-	fs.BoolVar(&o.Force, "force", false, "rebuild even if already up to date")
-	fs.StringVar(&o.Branch, "branch", "main", "branch to update to")
+	fs.BoolVar(&o.Force, "force", false, "update even if already up to date")
+	fs.BoolVar(&o.Source, "source", false, "build the latest main from source (needs git + Go) instead of downloading the latest release")
+	fs.StringVar(&o.Branch, "branch", "", "build this branch from source (implies --source)")
 	fs.StringVar(&o.Repo, "repo", update.DefaultRepo, "git repository to update from")
 	fs.StringVar(&o.Src, "src", "", "build from this local checkout (git pull --ff-only) instead of agentwatch's own clone")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	o.Version = Version
 	return update.Run(o)
 }
 
