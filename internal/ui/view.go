@@ -51,9 +51,10 @@ func (m *model) View() string {
 
 func (m *model) emptyView(w, h int) string {
 	lines := []string{
-		sBold.Render("CLAUDE CODE WATCH"),
+		sBold.Render("CCWATCH") + sDim.Render(" · live dashboard for AI coding agents"),
 		"",
-		sText.Render("No Claude Code sessions found yet."),
+		sText.Render("No agent sessions found yet."),
+		sDim.Render("Watching: Claude Code (hooks), Codex, Gemini CLI, OpenCode (session files)."),
 		"",
 	}
 	if d := m.st.Options().Dir; d != "" {
@@ -64,9 +65,9 @@ func (m *model) emptyView(w, h int) string {
 		)
 	}
 	lines = append(lines,
-		sDim.Render("1. install hooks:       ")+"ccwatch install",
-		sDim.Render("2. start a new session: ")+"claude --model sonnet --advisor opus",
-		sDim.Render("3. this dashboard picks it up automatically."),
+		sDim.Render("Claude Code: ")+"ccwatch install"+sDim.Render(", then start ")+"claude",
+		sDim.Render("Codex / Gemini / OpenCode: just start them in this folder."),
+		sDim.Render("Any other tool: pipe events to ")+"ccwatch hook --agent <name>",
 		"",
 		sDim.Render("Without hooks: ")+"ccwatch --recent 30m"+sDim.Render("  (reads recently active transcripts)"),
 		sDim.Render("Try the demo:  ")+"ccwatch demo",
@@ -83,7 +84,7 @@ func (m *model) statusBadge(s *store.Session) string {
 		return sDim.Render("■ ended")
 	case s.Status == "working" || s.Running() > 0:
 		return sGreen.Render(m.spin() + " working")
-	case !s.HasHooks:
+	case !s.HasHooks && s.IsClaude():
 		return sYel.Render("○ transcript-only")
 	default:
 		return sDim.Render("○ idle")
@@ -99,7 +100,7 @@ func (m *model) header(s *store.Session, idx, n, w int) string {
 		}
 		el = format.Dur(end.Sub(s.Start))
 	}
-	left := sBold.Render("CLAUDE CODE WATCH") + sDim.Render("  ·  ") +
+	left := sBold.Render("CCWATCH") + sDim.Render("  ·  ") + agentBadge(s.Agent) + sDim.Render(" · ") +
 		sText.Render("session "+format.Short(s.ID)) + sDim.Render(" · ") + sText.Render(format.BaseDir(s.Cwd)) +
 		sDim.Render(" · ") + sText.Render(el) + "   " + m.statusBadge(s)
 	follow := "follow"
@@ -109,6 +110,9 @@ func (m *model) header(s *store.Session, idx, n, w int) string {
 	scope := "all folders"
 	if d := m.st.Options().Dir; d != "" {
 		scope = "folder " + format.BaseDir(d)
+	}
+	if a := m.st.Options().Agents; len(a) > 0 {
+		scope += " · " + strings.Join(a, ",")
 	}
 	right := sDim.Render(fmt.Sprintf("session %d/%d · %s · %s", idx+1, n, scope, follow))
 	line1 := left

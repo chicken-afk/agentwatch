@@ -134,7 +134,10 @@ func (m *model) agentsView(s *store.Session, w, h int) string {
 		lines = append(lines, idleDefRow(len(ag)+i+1, d))
 	}
 	if len(lines) == 0 {
-		lines = []string{sDim.Render("no subagents yet (and none in .claude/agents)")}
+		lines = []string{sDim.Render("no subagents yet")}
+		if s.IsClaude() {
+			lines = []string{sDim.Render("no subagents yet (and none in .claude/agents)")}
+		}
 	}
 	view, sc := scrollWindow(lines, h-3, m.scroll)
 	m.scroll = sc

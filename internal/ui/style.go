@@ -1,4 +1,4 @@
-// Package ui: terminal dashboard (Bubble Tea) for Claude Code sessions.
+// Package ui: terminal dashboard (Bubble Tea) for AI coding agent sessions (Claude Code, Codex, Gemini CLI, OpenCode, …).
 package ui
 
 import (
@@ -28,3 +28,13 @@ func modelColor(m string) lipgloss.Color { return theme.ModelColor(m) }
 // mc / mcb: color text with the model family's color (mcb = bold).
 func mc(m, text string) string  { return theme.Model(m, text) }
 func mcb(m, text string) string { return theme.ModelBold(m, text) }
+
+func agentColor(a string) lipgloss.Color { return theme.AgentColor(a) }
+
+// agentBadge: the agent name in its color ("claude" when unset).
+func agentBadge(a string) string {
+	if a == "" {
+		a = "claude"
+	}
+	return lipgloss.NewStyle().Foreground(agentColor(a)).Bold(true).Render(a)
+}

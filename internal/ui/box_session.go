@@ -30,7 +30,7 @@ func (m *model) leadBox(s *store.Session, w int) string {
 	if s.PermMode != "" || s.Compacts > 0 {
 		lines = append(lines, kv("mode", sDim.Render(s.PermMode)+sDim.Render(fmt.Sprintf(" · compact %d", s.Compacts))))
 	}
-	title := sBold.Render("LEAD") + sDim.Render(" · ") + mcb(s.Lead, format.PrettyModel(s.Lead)) + sDim.Render(" · main session")
+	title := sBold.Render("LEAD") + sDim.Render(" · ") + mcb(s.Lead, format.PrettyModel(s.Lead)) + sDim.Render(" · ") + agentBadge(s.Agent) + sDim.Render(" main session")
 	border := modelColor(s.Lead)
 	if s.Status == "working" {
 		border = pulse(border)
@@ -95,7 +95,7 @@ func (m *model) logBox(s *store.Session, w, rows int) string {
 		lines = append(lines, logLine(e, w-4))
 	}
 	if len(s.Log) == 0 {
-		if s.HasHooks {
+		if s.HasHooks || !s.IsClaude() {
 			lines = []string{sDim.Render("waiting for events…")}
 		} else {
 			lines = []string{sYel.Render("hooks not installed for this session — run `ccwatch install` for a live log")}

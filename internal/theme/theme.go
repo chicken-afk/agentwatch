@@ -13,6 +13,8 @@ var (
 	Haiku  = lipgloss.Color("#6CA0F5")
 	Fable  = lipgloss.Color("#5FC9A8")
 	Mythos = lipgloss.Color("#E06C75")
+	GPT    = lipgloss.Color("#56B6C2")
+	Gemini = lipgloss.Color("#F28FAD")
 	Other  = lipgloss.Color("#A8A8A8")
 
 	ColorGreen  = lipgloss.Color("#6CC48A")
@@ -43,6 +45,25 @@ func ModelColor(m string) lipgloss.Color {
 		return Fable
 	case "mythos":
 		return Mythos
+	case "gpt":
+		return GPT
+	case "gemini":
+		return Gemini
+	}
+	return Other
+}
+
+// AgentColor: color per agent (claude orange like sonnet, codex like gpt, gemini pink, others gray).
+func AgentColor(agent string) lipgloss.Color {
+	switch agent {
+	case "", "claude":
+		return Sonnet
+	case "codex":
+		return GPT
+	case "gemini":
+		return Gemini
+	case "opencode":
+		return Haiku
 	}
 	return Other
 }
