@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"ccwatch/internal/demo"
 	"ccwatch/internal/hook"
 	"ccwatch/internal/statusline"
+	"ccwatch/internal/update"
 )
 
 const Version = "0.1.0"
@@ -23,8 +25,38 @@ var commands = map[string]command{
 	"uninstall":  runUninstall,
 	"rules":      runRules,
 	"demo":       demo.Run,
-	"version":    func([]string) error { fmt.Println("ccwatch", Version); return nil },
+	"update":     runUpdate,
+	"version":    runVersion,
 	"help":       func([]string) error { fmt.Println(usage); return nil },
+}
+
+// runVersion prints the version plus the git commit it was built from.
+func runVersion([]string) error {
+	rev, modified := update.Revision()
+	switch {
+	case rev == "":
+		fmt.Println("ccwatch", Version)
+	case modified:
+		fmt.Printf("ccwatch %s (%s + local changes)\n", Version, rev[:min(7, len(rev))])
+	default:
+		fmt.Printf("ccwatch %s (%s)\n", Version, rev[:min(7, len(rev))])
+	}
+	return nil
+}
+
+// runUpdate: `ccwatch update [--check] [--force] [--branch main] [--src <checkout>]`.
+func runUpdate(args []string) error {
+	fs := flag.NewFlagSet("update", flag.ExitOnError)
+	var o update.Options
+	fs.BoolVar(&o.Check, "check", false, "only check whether a newer version exists")
+	fs.BoolVar(&o.Force, "force", false, "rebuild even if already up to date")
+	fs.StringVar(&o.Branch, "branch", "main", "branch to update to")
+	fs.StringVar(&o.Repo, "repo", update.DefaultRepo, "git repository to update from")
+	fs.StringVar(&o.Src, "src", "", "build from this local checkout (git pull --ff-only) instead of ccwatch's own clone")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	return update.Run(o)
 }
 
 // runHook: `ccwatch hook [--agent <name>]`. Never fails: a hook must not get in the agent's way.

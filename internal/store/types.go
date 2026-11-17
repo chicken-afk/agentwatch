@@ -29,6 +29,7 @@ type ModelStat struct {
 
 type Agent struct {
 	ID, Type, Desc string
+	Name           string // given name of the run (omp workers: "BackendRBAC"); "" if the agent has none
 	ReqModel       string // model requested in the Agent tool (if any)
 	Models         []string
 	Status         string // running | done
@@ -48,6 +49,14 @@ func (a *Agent) Label() string {
 		return a.Type
 	}
 	return "subagent"
+}
+
+// Title: "Name · type" when the run has its own name, otherwise the type.
+func (a *Agent) Title() string {
+	if a.Name != "" && a.Name != a.Type {
+		return a.Name + " · " + a.Label()
+	}
+	return a.Label()
 }
 
 func (a *Agent) Model() string {

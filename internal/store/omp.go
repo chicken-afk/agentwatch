@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -90,6 +91,7 @@ type ompLine struct {
 	Task          any             `json:"task"`
 	ResolvedModel string          `json:"resolvedModel"`
 	CustomType    string          `json:"customType"`
+	Content       any             `json:"content"`
 	Data          map[string]any  `json:"data"`
 	Details       map[string]any  `json:"details"`
 	Usage         map[string]any  `json:"usage"`
@@ -200,8 +202,19 @@ func (s *Session) ingestOmp(line []byte) {
 		if l.CustomType == "session_exit" {
 			s.Status, s.CurrentTool = "ended", ""
 			s.log(t, "sys", "", "session exit ("+str(l.Data, "reason")+")", false)
+			for _, a := range s.Agents { // workers don't outlive the omp process
+				if a.Status == "running" {
+					a.Status = "done"
+					if a.End.IsZero() {
+						a.End = t
+					}
+				}
+			}
 		}
 	case "custom_message":
+		if l.CustomType == "async-result" {
+			s.ompJobsDone(t, l.Details, l.Content)
+		}
 		if l.CustomType == "skill-prompt" {
 			// "/skill:<name> …" typed by the user is stored here instead of as a user message:
 			// it is both the prompt and the skill use (beginPrompt records the slash skill).
@@ -241,7 +254,7 @@ func (s *Session) ompMessage(t time.Time, m *ompMessage) {
 			args, _ := b["arguments"].(map[string]any)
 			sum := toolSummary(name, args)
 			if name == "task" {
-				sum = "dispatch → task"
+				sum = "dispatch → " + strings.Join(s.ompDispatch(t, args), ", ")
 				if i := str(args, "i"); i != "" {
 					sum += ": " + format.OneLine(i)
 				}
@@ -263,17 +276,113 @@ func (s *Session) ompMessage(t time.Time, m *ompMessage) {
 	}
 }
 
+// ompDispatch registers the workers of a task tool call ({tasks: [{name, agent, task}]}) right away:
+// omp only writes a worker's own file once it is parked, so this is where its name first appears.
+func (s *Session) ompDispatch(t time.Time, args map[string]any) []string {
+	tasks, _ := args["tasks"].([]any)
+	var names []string
+	for _, x := range tasks {
+		tk, _ := x.(map[string]any)
+		name := str(tk, "name")
+		if name == "" {
+			continue
+		}
+		a := s.agent(name)
+		a.Name = name
+		if typ := str(tk, "agent"); typ != "" {
+			a.Type = typ
+		} else if a.Type == "" {
+			a.Type = "task"
+		}
+		if a.Desc == "" {
+			a.Desc = ompTaskSummary(str(tk, "task"))
+		}
+		a.Status = "running"
+		if a.Start.IsZero() {
+			a.Start = t
+		}
+		a.LastSeen = t
+		names = append(names, name+" ("+a.Type+")")
+		s.log(t, a.Label(), a.Model(), "subagent started: "+name+descSuffix(a.Desc), false)
+	}
+	if len(names) == 0 {
+		names = []string{"task"}
+	}
+	return names
+}
+
+// ompTaskSummary: the first plain line of a worker's task (markdown headings skipped).
+func ompTaskSummary(task string) string {
+	for _, l := range strings.Split(task, "\n") {
+		l = strings.TrimSpace(l)
+		if l == "" || strings.HasPrefix(l, "#") {
+			continue
+		}
+		return format.Clip(l, 120)
+	}
+	return ""
+}
+
+var ompResultRe = regexp.MustCompile(`<task-result id="([^"]+)"[^>]*status="([^"]+)"`)
+
+// ompJobsDone marks workers finished from an async-result message
+// ({details: {jobs: [{jobId, durationMs}]}, content: "<task-result id=… status=…>").
+func (s *Session) ompJobsDone(t time.Time, details map[string]any, content any) {
+	status := map[string]string{}
+	if c, ok := content.(string); ok {
+		for _, m := range ompResultRe.FindAllStringSubmatch(c, -1) {
+			status[m[1]] = m[2]
+		}
+	}
+	jobs, _ := details["jobs"].([]any)
+	for _, x := range jobs {
+		j, _ := x.(map[string]any)
+		id := str(j, "jobId")
+		if id == "" {
+			continue
+		}
+		// background jobs also include shell commands (type "bash"): only task jobs are subagents
+		if _, known := s.Agents[agentKey(id)]; !known && str(j, "type") != "task" {
+			continue
+		}
+		a := s.agent(id)
+		if a.Name == "" {
+			a.Name = id
+		}
+		if a.Type == "" {
+			a.Type = str(j, "type")
+		}
+		if d := num(j, "durationMs"); d > 0 && a.Start.IsZero() {
+			a.Start = t.Add(-time.Duration(d) * time.Millisecond)
+		}
+		if a.Status == "done" {
+			continue
+		}
+		a.Status, a.End = "done", t
+		st := status[id]
+		if st == "" {
+			st = "done"
+		}
+		s.log(t, a.Label(), a.Model(), "subagent "+st+": "+id+" · "+format.Dur(a.End.Sub(a.Start)), st == "failed" || st == "error")
+	}
+}
+
 // ingestOmpAgent reads a subagent run (<session>/<Name>.jsonl) into Agent a of session s.
 func (s *Session) ingestOmpAgent(a *Agent, line []byte) {
 	l, t, ok := parseOmp(line)
 	if !ok {
 		return
 	}
+	if a.Name == "" {
+		a.Name = a.ID // the file is named after the worker
+	}
 	if !t.IsZero() {
 		if a.Start.IsZero() {
 			a.Start = t
 		}
-		a.LastSeen = t
+		if t.After(a.LastSeen) {
+			a.LastSeen = t
+		}
 	}
 	switch l.Type {
 	case "session_init":
@@ -284,16 +393,11 @@ func (s *Session) ingestOmpAgent(a *Agent, line []byte) {
 			a.Type = "task"
 		}
 		if task, ok := l.Task.(string); ok && a.Desc == "" {
-			a.Desc = format.Clip(format.OneLine(task), 120)
-		}
-		if a.Desc == "" {
-			a.Desc = a.ID
+			a.Desc = ompTaskSummary(task)
 		}
 		if m := ompModel(l.ResolvedModel); m != "" {
 			a.ReqModel = m
 		}
-		a.Status = "running"
-		s.log(t, a.Label(), a.Model(), "subagent started: "+a.ID, false)
 	case "custom":
 		if l.CustomType == "session_exit" && a.Status != "done" {
 			a.Status, a.End = "done", t
@@ -306,9 +410,6 @@ func (s *Session) ingestOmpAgent(a *Agent, line []byte) {
 		}
 		if md := m.Model; md != "" && a.Model() != md {
 			a.Models = append(a.Models, md)
-		}
-		if a.Status != "done" {
-			a.Status = "running"
 		}
 		for _, b := range m.blocks {
 			if str(b, "type") == "toolCall" {

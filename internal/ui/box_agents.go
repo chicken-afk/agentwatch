@@ -62,7 +62,7 @@ func (m *model) agentCard(a *store.Agent, w int) string {
 	if a.Desc != "" {
 		lines = append(lines, sDim.Render(a.Desc))
 	}
-	return box(mcb(mdl, a.Label()), border, w, lines, 5)
+	return box(mcb(mdl, a.Title()), border, w, lines, 5)
 }
 
 func (m *model) agentGrid(s *store.Session, w int) string {
@@ -122,7 +122,7 @@ func idleDefLine(d store.AgentDef, w int) string {
 // agentsView: tab 4, a table of all subagents plus configured ones not called yet.
 func (m *model) agentsView(s *store.Session, w, h int) string {
 	hdr := sDim.Render(fmt.Sprintf("%-3s %-18s %-22s %-9s %8s %6s %6s %8s %7s  %s",
-		"#", "TYPE", "MODEL", "STATUS", "DURATION", "TOOL", "MSGS", "IN", "OUT", "TASK"))
+		"#", "NAME / TYPE", "MODEL", "STATUS", "DURATION", "TOOL", "MSGS", "IN", "OUT", "TASK"))
 	var lines []string
 	ag := s.AgentsOrdered()
 	sort.SliceStable(ag, func(i, j int) bool { return ag[i].Start.Before(ag[j].Start) })
@@ -158,7 +158,7 @@ func agentRow(n int, a *store.Agent) string {
 		status = sDim.Render(fmt.Sprintf("%-9s", "done"))
 	}
 	return sDim.Render(fmt.Sprintf("%-3d ", n)) +
-		mcb(a.Model(), fmt.Sprintf("%-18s", format.Clip(a.Label(), 18))) + " " +
+		mcb(a.Model(), fmt.Sprintf("%-18s", format.Clip(a.Title(), 18))) + " " +
 		mc(a.Model(), fmt.Sprintf("%-22s", format.Clip(strings.Join(models, "→"), 22))) + " " + status +
 		sText.Render(fmt.Sprintf(" %8s %6d %6d %8s %7s  ", agentElapsed(a), a.Tools, a.Msgs,
 			format.Human(a.Usage.InputTotal()), format.Human(a.Usage.Out))) + sDim.Render(a.Desc)
