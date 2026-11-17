@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"ccwatch/internal/config"
-	"ccwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/config"
+	"github.com/chicken-afk/agentwatch/internal/format"
 )
 
 // Codex CLI writes one rollout per session:

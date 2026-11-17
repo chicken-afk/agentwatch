@@ -1,4 +1,4 @@
-// Package cli: ccwatch subcommand dispatch and flag parsing.
+// Package cli: agentwatch subcommand dispatch and flag parsing.
 package cli
 
 import (
@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"ccwatch/internal/demo"
-	"ccwatch/internal/hook"
-	"ccwatch/internal/statusline"
-	"ccwatch/internal/update"
+	"github.com/chicken-afk/agentwatch/internal/demo"
+	"github.com/chicken-afk/agentwatch/internal/hook"
+	"github.com/chicken-afk/agentwatch/internal/statusline"
+	"github.com/chicken-afk/agentwatch/internal/update"
 )
 
 const Version = "0.1.0"
@@ -35,16 +35,16 @@ func runVersion([]string) error {
 	rev, modified := update.Revision()
 	switch {
 	case rev == "":
-		fmt.Println("ccwatch", Version)
+		fmt.Println("agentwatch", Version)
 	case modified:
-		fmt.Printf("ccwatch %s (%s + local changes)\n", Version, rev[:min(7, len(rev))])
+		fmt.Printf("agentwatch %s (%s + local changes)\n", Version, rev[:min(7, len(rev))])
 	default:
-		fmt.Printf("ccwatch %s (%s)\n", Version, rev[:min(7, len(rev))])
+		fmt.Printf("agentwatch %s (%s)\n", Version, rev[:min(7, len(rev))])
 	}
 	return nil
 }
 
-// runUpdate: `ccwatch update [--check] [--force] [--branch main] [--src <checkout>]`.
+// runUpdate: `agentwatch update [--check] [--force] [--branch main] [--src <checkout>]`.
 func runUpdate(args []string) error {
 	fs := flag.NewFlagSet("update", flag.ExitOnError)
 	var o update.Options
@@ -52,14 +52,14 @@ func runUpdate(args []string) error {
 	fs.BoolVar(&o.Force, "force", false, "rebuild even if already up to date")
 	fs.StringVar(&o.Branch, "branch", "main", "branch to update to")
 	fs.StringVar(&o.Repo, "repo", update.DefaultRepo, "git repository to update from")
-	fs.StringVar(&o.Src, "src", "", "build from this local checkout (git pull --ff-only) instead of ccwatch's own clone")
+	fs.StringVar(&o.Src, "src", "", "build from this local checkout (git pull --ff-only) instead of agentwatch's own clone")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	return update.Run(o)
 }
 
-// runHook: `ccwatch hook [--agent <name>]`. Never fails: a hook must not get in the agent's way.
+// runHook: `agentwatch hook [--agent <name>]`. Never fails: a hook must not get in the agent's way.
 func runHook(args []string) error {
 	agent := ""
 	for i := 0; i < len(args); i++ {
@@ -90,7 +90,7 @@ func splitCommand(args []string) (string, []string) {
 	return "watch", args
 }
 
-// Run runs ccwatch and returns the exit code: 0 success, 1 failure, 2 unknown command.
+// Run runs agentwatch and returns the exit code: 0 success, 1 failure, 2 unknown command.
 func Run(args []string) int {
 	name, rest := splitCommand(args)
 	cmd, ok := commands[name]

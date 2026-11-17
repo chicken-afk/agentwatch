@@ -2,7 +2,7 @@
 package ui
 
 import (
-	"ccwatch/internal/theme"
+	"github.com/chicken-afk/agentwatch/internal/theme"
 
 	"github.com/charmbracelet/lipgloss"
 )

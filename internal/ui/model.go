@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"ccwatch/internal/store"
+	"github.com/chicken-afk/agentwatch/internal/store"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -44,7 +44,7 @@ func Run(o store.Options) error {
 	return err
 }
 
-// Snapshot renders one dashboard frame without an interactive terminal (used by `ccwatch demo --snapshot`).
+// Snapshot renders one dashboard frame without an interactive terminal (used by `agentwatch demo --snapshot`).
 func Snapshot(o store.Options, w, h, tab int) string {
 	m := &model{st: store.New(o), w: w, h: h, tab: tab, frame: 1}
 	m.st.Refresh()

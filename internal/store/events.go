@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"time"
 
-	"ccwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/format"
 )
 
-// hookEvent: one events.jsonl line (written by `ccwatch hook`) plus the context
+// hookEvent: one events.jsonl line (written by `agentwatch hook`) plus the context
 // of the actor (lead or subagent) that ran it.
 type hookEvent struct {
 	raw       map[string]any
@@ -23,6 +23,16 @@ type hookEvent struct {
 
 func (e hookEvent) str(k string) string { return str(e.raw, k) }
 
+// first: the first non-empty string (new field name, then the pre-rebrand one).
+func first(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func str(m map[string]any, k string) string { v, _ := m[k].(string); return v }
 
 func (st *Store) ingestEvent(line []byte) {
@@ -34,20 +44,20 @@ func (st *Store) ingestEvent(line []byte) {
 	if sid == "" {
 		return
 	}
-	t, _ := time.Parse(time.RFC3339Nano, str(raw, "ccwatch_ts"))
+	t, _ := time.Parse(time.RFC3339Nano, first(str(raw, "agentwatch_ts"), str(raw, "ccwatch_ts")))
 	ti, _ := raw["tool_input"].(map[string]any)
 	name := str(raw, "hook_event_name")
 	if alias, ok := eventAliases[name]; ok {
 		name = alias
 	}
-	st.sessionFor(str(raw, "ccwatch_agent"), sid).applyHook(hookEvent{
+	st.sessionFor(first(str(raw, "agentwatch_agent"), str(raw, "ccwatch_agent")), sid).applyHook(hookEvent{
 		raw: raw, name: name, t: t,
 		agentID: agentKey(str(raw, "agent_id")), toolInput: ti,
 	})
 }
 
 // eventAliases maps other tools' hook names (Gemini CLI) onto the Claude Code vocabulary
-// that applyHook understands, so `ccwatch hook --agent gemini` works as-is.
+// that applyHook understands, so `agentwatch hook --agent gemini` works as-is.
 var eventAliases = map[string]string{
 	"BeforeTool":  "PreToolUse",
 	"AfterTool":   "PostToolUse",
@@ -241,7 +251,7 @@ func (s *Session) onSubagentStop(e hookEvent) {
 	s.log(e.t, a.Label(), a.Model(), "subagent done · "+format.Dur(a.End.Sub(a.Start))+" · "+strconv.Itoa(a.Tools)+" tools", false)
 }
 
-// onMessage: generic event (`ccwatch hook --agent <name>`) for one model reply,
+// onMessage: generic event (`agentwatch hook --agent <name>`) for one model reply,
 // with optional token counts: model, input_tokens, output_tokens, cache_read_tokens.
 func (s *Session) onMessage(e hookEvent) {
 	mdl := e.str("model")

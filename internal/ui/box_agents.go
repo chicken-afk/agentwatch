@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"ccwatch/internal/format"
-	"ccwatch/internal/store"
+	"github.com/chicken-afk/agentwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/store"
 
 	"github.com/charmbracelet/lipgloss"
 )

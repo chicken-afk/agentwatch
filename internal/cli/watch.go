@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"ccwatch/internal/pathmatch"
-	"ccwatch/internal/store"
-	"ccwatch/internal/ui"
+	"github.com/chicken-afk/agentwatch/internal/pathmatch"
+	"github.com/chicken-afk/agentwatch/internal/store"
+	"github.com/chicken-afk/agentwatch/internal/ui"
 )
 
-// watchFlags: parsed flags for `ccwatch watch`.
+// watchFlags: parsed flags for `agentwatch watch`.
 type watchFlags struct {
 	session  string
 	advisors advisorFlag
@@ -46,7 +46,7 @@ func runWatch(args []string) error {
 	fs.DurationVar(&f.recent, "recent", 0, "also show transcripts active within this duration, even without hooks (e.g. 30m)")
 	fs.BoolVar(&f.all, "all", false, "show sessions from all folders (default: only sessions in the current folder)")
 	fs.StringVar(&f.dir, "dir", "", "only show sessions in this folder (default: current folder)")
-	fs.Var(&f.agents, "agent", "only show sessions from these agents: claude, codex, gemini, opencode, omp, or a name sent via 'ccwatch hook --agent NAME' (repeatable, comma-separated)")
+	fs.Var(&f.agents, "agent", "only show sessions from these agents: claude, codex, gemini, opencode, omp, or a name sent via 'agentwatch hook --agent NAME' (repeatable, comma-separated)")
 	fs.DurationVar(&f.window, "window", store.DefaultWindow, "how far back to load Codex/Gemini/OpenCode/omp sessions (they have no hooks)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -59,7 +59,7 @@ func (f watchFlags) options() store.Options {
 	o := store.Options{Session: f.session, Recent: f.recent, AdvisorBySession: f.advisors.bySession,
 		Agents: f.agents, Window: f.window}
 
-	// default: only sessions in the folder where ccwatch was started.
+	// default: only sessions in the folder where agentwatch was started.
 	// --all disables the filter; --session (an explicit session) isn't folder-filtered either.
 	if !f.all && (f.session == "" || f.dir != "") {
 		o.Dir = f.watchDir()

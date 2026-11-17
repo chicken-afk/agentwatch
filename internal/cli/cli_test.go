@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"ccwatch/internal/pathmatch"
+	"github.com/chicken-afk/agentwatch/internal/pathmatch"
 )
 
 func TestSplitCommand(t *testing.T) {

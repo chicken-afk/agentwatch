@@ -1,10 +1,10 @@
-// Package events writes the ccwatch event log (events.jsonl) that the dashboard reads.
+// Package events writes the agentwatch event log (events.jsonl) that the dashboard reads.
 package events
 
 import (
 	"os"
 
-	"ccwatch/internal/config"
+	"github.com/chicken-afk/agentwatch/internal/config"
 )
 
 // maxSize: above this size the file is rotated to events.jsonl.1.

@@ -1,8 +1,8 @@
-// Package update implements `ccwatch update`: fetch the latest source from GitHub,
+// Package update implements `agentwatch update`: fetch the latest source from GitHub,
 // build it, and replace the running binary in place.
 //
 // There are no prebuilt releases, so this needs git and Go on PATH. The source lives in
-// a clone owned by ccwatch (os.UserCacheDir()/ccwatch/src, or CCWATCH_SRC), which is
+// a clone owned by agentwatch (os.UserCacheDir()/agentwatch/src, or AGENTWATCH_SRC), which is
 // reset to the remote branch on every update; --src builds from your own checkout instead
 // and only fast-forwards it.
 package update
@@ -16,9 +16,12 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+
+	"github.com/chicken-afk/agentwatch/internal/config"
+	"github.com/chicken-afk/agentwatch/internal/install"
 )
 
-// DefaultRepo is where ccwatch updates from.
+// DefaultRepo is where agentwatch updates from.
 const DefaultRepo = "https://github.com/chicken-afk/agentwatch.git"
 
 // Options for one update run.
@@ -49,16 +52,16 @@ func Revision() (rev string, modified bool) {
 	return rev, modified
 }
 
-// SourceDir: the managed clone (CCWATCH_SRC overrides).
+// SourceDir: the managed clone (AGENTWATCH_SRC, or the old CCWATCH_SRC, overrides).
 func SourceDir() (string, error) {
-	if d := os.Getenv("CCWATCH_SRC"); d != "" {
+	if d := config.Env("SRC"); d != "" {
 		return d, nil
 	}
 	cache, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(cache, "ccwatch", "src"), nil
+	return filepath.Join(cache, "agentwatch", "src"), nil
 }
 
 // Run performs the update.
@@ -90,23 +93,26 @@ func Run(o Options) error {
 	upToDate := current != "" && current == latest && !modified
 	if o.Check {
 		if upToDate {
-			fmt.Fprintln(o.Out, "ccwatch is up to date.")
+			fmt.Fprintln(o.Out, "agentwatch is up to date.")
 		} else {
-			fmt.Fprintln(o.Out, "An update is available: run `ccwatch update`.")
+			fmt.Fprintln(o.Out, "An update is available: run `agentwatch update`.")
 		}
 		return nil
 	}
 	if upToDate && !o.Force {
-		fmt.Fprintln(o.Out, "ccwatch is already up to date (use --force to rebuild anyway).")
+		fmt.Fprintln(o.Out, "agentwatch is already up to date (use --force to rebuild anyway).")
 		return nil
 	}
 	if _, err := exec.LookPath("go"); err != nil {
-		return errors.New("Go is not installed (needed to build ccwatch): https://go.dev/dl/")
+		return errors.New("Go is not installed (needed to build agentwatch): https://go.dev/dl/")
 	}
 
 	dir, err := o.prepareSource()
 	if err != nil {
 		return err
+	}
+	if _, err := install.MigrateBinaryName(o.Out); err != nil {
+		fmt.Fprintln(o.Out, "warning:", err)
 	}
 	exe, err := executable()
 	if err != nil {
@@ -117,7 +123,8 @@ func Run(o Options) error {
 	}
 	rev, _ := gitOut(dir, "rev-parse", "HEAD")
 	fmt.Fprintf(o.Out, "updated %s → %s\n", exe, short(rev))
-	fmt.Fprintln(o.Out, "Restart any open ccwatch dashboards to use the new version. Hooks keep working (same path).")
+	fmt.Fprintln(o.Out, "Restart any open agentwatch dashboards to use the new version.")
+	fmt.Fprintln(o.Out, "If you upgraded from ccwatch, run `agentwatch install` once so the hooks use the new name.")
 	return nil
 }
 
@@ -125,7 +132,7 @@ func Run(o Options) error {
 // when its branch tracks a remote (--check, --branch and --repo don't apply).
 func (o Options) buildLocal() error {
 	if _, err := exec.LookPath("go"); err != nil {
-		return errors.New("Go is not installed (needed to build ccwatch): https://go.dev/dl/")
+		return errors.New("Go is not installed (needed to build agentwatch): https://go.dev/dl/")
 	}
 	if _, err := gitOut(o.Src, "rev-parse", "--abbrev-ref", "@{upstream}"); err == nil {
 		fmt.Fprintf(o.Out, "pulling %s …\n", o.Src)
@@ -149,7 +156,7 @@ func (o Options) buildLocal() error {
 	return nil
 }
 
-// prepareSource clones or updates ccwatch's own clone and returns its folder.
+// prepareSource clones or updates agentwatch's own clone and returns its folder.
 func (o Options) prepareSource() (string, error) {
 	dir, err := SourceDir()
 	if err != nil {
@@ -165,7 +172,7 @@ func (o Options) prepareSource() (string, error) {
 		}
 		return dir, nil
 	}
-	// the managed clone belongs to ccwatch: always match the remote branch exactly
+	// the managed clone belongs to agentwatch: always match the remote branch exactly
 	fmt.Fprintf(o.Out, "fetching %s …\n", o.Branch)
 	if err := git(dir, o.Out, "remote", "set-url", "origin", o.Repo); err != nil {
 		return "", err
@@ -198,7 +205,7 @@ func build(dir, exe string, out io.Writer) error {
 	return nil
 }
 
-// executable: the path of the running ccwatch binary, symlinks resolved.
+// executable: the path of the running agentwatch binary, symlinks resolved.
 func executable() (string, error) {
 	exe, err := os.Executable()
 	if err != nil {

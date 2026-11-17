@@ -1,4 +1,4 @@
-// Package install installs/removes the ccwatch integration in the Claude Code config:
+// Package install installs/removes the agentwatch integration in the Claude Code config:
 // hooks (+ status line) in settings.json and the skill rules block in CLAUDE.md.
 package install
 
@@ -10,7 +10,7 @@ import (
 )
 
 // writeWithBackup writes data to path. If the file already exists (orig != nil),
-// the old copy is saved first as <path>.ccwatch-backup-<time>.
+// the old copy is saved first as <path>.agentwatch-backup-<time>.
 func writeWithBackup(path string, data, orig []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -26,7 +26,7 @@ func backup(path string, orig []byte) error {
 	if orig == nil {
 		return nil
 	}
-	bak := path + ".ccwatch-backup-" + time.Now().Format("20060102-150405")
+	bak := path + ".agentwatch-backup-" + time.Now().Format("20060102-150405")
 	if err := os.WriteFile(bak, orig, 0o644); err != nil {
 		return err
 	}

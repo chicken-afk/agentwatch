@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"ccwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/format"
 )
 
 // Polled providers: agents other than Claude Code (Codex, Gemini CLI, OpenCode, omp) are read

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"ccwatch/internal/config"
+	"github.com/chicken-afk/agentwatch/internal/config"
 )
 
 // AgentDef: a subagent definition from .claude/agents/*.md (frontmatter).

@@ -3,13 +3,13 @@ package ui
 import (
 	"path/filepath"
 
-	"ccwatch/internal/format"
-	"ccwatch/internal/store"
+	"github.com/chicken-afk/agentwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/store"
 )
 
-// agentInfoBox: for non-Claude sessions, which agent this is and where ccwatch reads it from.
+// agentInfoBox: for non-Claude sessions, which agent this is and where agentwatch reads it from.
 func (m *model) agentInfoBox(s *store.Session, w, h int) string {
-	src := "hooks (ccwatch hook --agent " + s.Agent + ")"
+	src := "hooks (agentwatch hook --agent " + s.Agent + ")"
 	if s.Transcript != "" {
 		src = filepath.Base(s.Transcript)
 	}

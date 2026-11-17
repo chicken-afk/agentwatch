@@ -13,12 +13,12 @@ func isolate(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	for env, sub := range map[string]string{
-		"CLAUDE_CONFIG_DIR":    "claude",
-		"CCWATCH_DIR":          "ccwatch",
-		"CODEX_HOME":           "codex",
-		"CCWATCH_GEMINI_DIR":   "gemini",
-		"CCWATCH_OPENCODE_DIR": "opencode",
-		"CCWATCH_OMP_DIR":      "omp",
+		"CLAUDE_CONFIG_DIR":       "claude",
+		"AGENTWATCH_DIR":          "agentwatch",
+		"CODEX_HOME":              "codex",
+		"AGENTWATCH_GEMINI_DIR":   "gemini",
+		"AGENTWATCH_OPENCODE_DIR": "opencode",
+		"AGENTWATCH_OMP_DIR":      "omp",
 	} {
 		t.Setenv(env, filepath.Join(root, sub))
 	}
@@ -203,13 +203,13 @@ func TestGenericHookAgent(t *testing.T) {
 	isolate(t)
 	st := New(Options{})
 	lines := []string{
-		`{"session_id":"s1","ccwatch_agent":"aider","hook_event_name":"SessionStart","cwd":"/work/pos","model":"gpt-5","ccwatch_ts":"2026-11-17T10:00:00Z"}`,
-		`{"session_id":"s1","ccwatch_agent":"aider","hook_event_name":"UserPromptSubmit","prompt":"add tests","ccwatch_ts":"2026-11-17T10:00:01Z"}`,
-		`{"session_id":"s1","ccwatch_agent":"aider","hook_event_name":"BeforeTool","tool_name":"shell","tool_input":{"command":"go test"},"ccwatch_ts":"2026-11-17T10:00:02Z"}`,
-		`{"session_id":"s1","ccwatch_agent":"aider","hook_event_name":"Message","model":"gpt-5","input_tokens":100,"output_tokens":20,"ccwatch_ts":"2026-11-17T10:00:03Z"}`,
-		`{"session_id":"s1","ccwatch_agent":"aider","hook_event_name":"AfterAgent","ccwatch_ts":"2026-11-17T10:00:04Z"}`,
+		`{"session_id":"s1","agentwatch_agent":"aider","hook_event_name":"SessionStart","cwd":"/work/pos","model":"gpt-5","agentwatch_ts":"2026-11-17T10:00:00Z"}`,
+		`{"session_id":"s1","agentwatch_agent":"aider","hook_event_name":"UserPromptSubmit","prompt":"add tests","agentwatch_ts":"2026-11-17T10:00:01Z"}`,
+		`{"session_id":"s1","agentwatch_agent":"aider","hook_event_name":"BeforeTool","tool_name":"shell","tool_input":{"command":"go test"},"agentwatch_ts":"2026-11-17T10:00:02Z"}`,
+		`{"session_id":"s1","agentwatch_agent":"aider","hook_event_name":"Message","model":"gpt-5","input_tokens":100,"output_tokens":20,"agentwatch_ts":"2026-11-17T10:00:03Z"}`,
+		`{"session_id":"s1","agentwatch_agent":"aider","hook_event_name":"AfterAgent","agentwatch_ts":"2026-11-17T10:00:04Z"}`,
 		// same id from Claude Code must stay a separate session
-		`{"session_id":"s1","hook_event_name":"SessionStart","cwd":"/work/pos","ccwatch_ts":"2026-11-17T10:00:05Z"}`,
+		`{"session_id":"s1","hook_event_name":"SessionStart","cwd":"/work/pos","agentwatch_ts":"2026-11-17T10:00:05Z"}`,
 	}
 	for _, l := range lines {
 		st.ingestEvent([]byte(l))
@@ -282,5 +282,18 @@ func TestOmpSession(t *testing.T) {
 	// a worker that never got its own file is still known by name from the task call, and done from async-result
 	if b := s.Agents["ApiFix"]; b == nil || b.Title() != "ApiFix · task" || b.Status != "done" || b.Desc != "Fix the API" {
 		t.Errorf("dispatched worker: %+v", b)
+	}
+}
+
+func TestLegacyEventsStillRead(t *testing.T) {
+	root := isolate(t)
+	// hooks installed before the rebrand write ~/.claude/ccwatch/events.jsonl with ccwatch_* fields
+	write(t, filepath.Join(root, "claude", "ccwatch", "events.jsonl"),
+		`{"session_id":"old1","hook_event_name":"SessionStart","cwd":"/work/pos","ccwatch_ts":"2026-11-17T10:00:00Z"}`+"\n"+
+			`{"session_id":"old2","ccwatch_agent":"aider","hook_event_name":"SessionStart","cwd":"/work/pos","ccwatch_ts":"2026-11-17T10:00:01Z"}`+"\n")
+	st := New(Options{})
+	st.Refresh()
+	if only(t, st, AgentClaude).ID != "old1" || only(t, st, "aider").ID != "old2" {
+		t.Error("legacy events not read")
 	}
 }

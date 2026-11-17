@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"ccwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/format"
 )
 
 // transcriptLine: one line of a Claude Code JSONL transcript (only the fields we use).

@@ -16,7 +16,7 @@ var hookEvents = []string{
 	"PreCompact", "Notification",
 }
 
-// selfCommand: the command that invokes this ccwatch binary with subcommand sub.
+// selfCommand: the command that invokes this agentwatch binary with subcommand sub.
 func selfCommand(sub string) (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
@@ -57,9 +57,10 @@ func writeSettings(path string, s map[string]any, orig []byte) error {
 	return writeWithBackup(path, append(b, '\n'), orig)
 }
 
-// isOurs: whether command ends with " <sub>" and points to ccwatch.
+// isOurs: whether command ends with " <sub>" and points to agentwatch.
 func isOurs(cmd, sub string) bool {
-	return strings.Contains(cmd, "ccwatch") && strings.HasSuffix(strings.TrimSpace(cmd), " "+sub)
+	ours := strings.Contains(cmd, "agentwatch") || strings.Contains(cmd, "ccwatch") // ccwatch = pre-rebrand name
+	return ours && strings.HasSuffix(strings.TrimSpace(cmd), " "+sub)
 }
 
 // commandOf: the "command" field of one hook (empty if it isn't an object/string).
@@ -69,8 +70,8 @@ func commandOf(h any) string {
 	return c
 }
 
-// InstallHooks adds the ccwatch hooks to the settings.json at path without removing
-// other hooks/settings. Existing ccwatch hooks only get their path updated.
+// InstallHooks adds the agentwatch hooks to the settings.json at path without removing
+// other hooks/settings. Existing agentwatch hooks only get their path updated.
 func InstallHooks(path string, withStatusline bool) error {
 	cmd, err := selfCommand("hook")
 	if err != nil {
@@ -101,19 +102,19 @@ func InstallHooks(path string, withStatusline bool) error {
 	}
 	s["hooks"] = hooks
 
-	if withStatusline {
+	if !repointStatusline(s) && withStatusline {
 		installStatusline(s)
 	}
 
 	if err := writeSettings(path, s, orig); err != nil {
 		return err
 	}
-	fmt.Printf("ccwatch hooks installed in %s (%d new events, %d total)\n", path, added, len(hookEvents))
-	fmt.Println("Start a new Claude Code session so the hooks take effect, then run `ccwatch` in a split next to it.")
+	fmt.Printf("agentwatch hooks installed in %s (%d new events, %d total)\n", path, added, len(hookEvents))
+	fmt.Println("Start a new Claude Code session so the hooks take effect, then run `agentwatch` in a split next to it.")
 	return nil
 }
 
-// refreshHookCommand updates existing ccwatch hook commands in groups
+// refreshHookCommand updates existing agentwatch hook commands in groups
 // (the binary path may have changed). Returns true if any were found.
 func refreshHookCommand(groups []any, cmd string) bool {
 	found := false
@@ -130,17 +131,34 @@ func refreshHookCommand(groups []any, cmd string) bool {
 	return found
 }
 
+// repointStatusline points an existing agentwatch (or pre-rebrand ccwatch) status line at this
+// binary. Reports whether one was found.
+func repointStatusline(s map[string]any) bool {
+	sl, ok := s["statusLine"].(map[string]any)
+	if !ok {
+		return false
+	}
+	c, _ := sl["command"].(string)
+	if !isOurs(c, "statusline") {
+		return false
+	}
+	if sc, err := selfCommand("statusline"); err == nil {
+		sl["command"] = sc
+	}
+	return true
+}
+
 func installStatusline(s map[string]any) {
 	if _, exists := s["statusLine"]; exists {
-		fmt.Println("A statusLine is already set; leaving it alone. Remove it first if you want the ccwatch one.")
+		fmt.Println("A statusLine is already set; leaving it alone. Remove it first if you want the agentwatch one.")
 		return
 	}
 	sc, _ := selfCommand("statusline")
 	s["statusLine"] = map[string]any{"type": "command", "command": sc, "padding": 0}
-	fmt.Println("ccwatch statusLine installed.")
+	fmt.Println("agentwatch statusLine installed.")
 }
 
-// UninstallHooks removes the ccwatch hooks and status line from the settings.json at path.
+// UninstallHooks removes the agentwatch hooks and status line from the settings.json at path.
 func UninstallHooks(path string) error {
 	s, orig, err := readSettings(path)
 	if err != nil {
@@ -168,17 +186,17 @@ func UninstallHooks(path string) error {
 	if sl, ok := s["statusLine"].(map[string]any); ok {
 		if c, _ := sl["command"].(string); isOurs(c, "statusline") {
 			delete(s, "statusLine")
-			fmt.Println("ccwatch statusLine removed.")
+			fmt.Println("agentwatch statusLine removed.")
 		}
 	}
 	if err := writeSettings(path, s, orig); err != nil {
 		return err
 	}
-	fmt.Printf("removed %d ccwatch hooks from %s\n", removed, path)
+	fmt.Printf("removed %d agentwatch hooks from %s\n", removed, path)
 	return nil
 }
 
-// withoutOurHooks drops ccwatch hooks from groups; groups left empty are dropped too.
+// withoutOurHooks drops agentwatch hooks from groups; groups left empty are dropped too.
 // Returns the remaining groups and the number of hooks removed.
 func withoutOurHooks(groups []any) (kept []any, removed int) {
 	for _, g := range groups {
