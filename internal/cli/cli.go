@@ -4,6 +4,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"ccwatch/internal/demo"
 	"ccwatch/internal/hook"
@@ -16,7 +17,7 @@ type command func(args []string) error
 
 var commands = map[string]command{
 	"watch":      runWatch,
-	"hook":       func([]string) error { hook.Run(os.Stdin); return nil },
+	"hook":       runHook,
 	"statusline": func([]string) error { statusline.Run(os.Stdin, os.Stdout); return nil },
 	"install":    runInstall,
 	"uninstall":  runUninstall,
@@ -24,6 +25,22 @@ var commands = map[string]command{
 	"demo":       demo.Run,
 	"version":    func([]string) error { fmt.Println("ccwatch", Version); return nil },
 	"help":       func([]string) error { fmt.Println(usage); return nil },
+}
+
+// runHook: `ccwatch hook [--agent <name>]`. Never fails: a hook must not get in the agent's way.
+func runHook(args []string) error {
+	agent := ""
+	for i := 0; i < len(args); i++ {
+		switch a := args[i]; {
+		case (a == "--agent" || a == "-agent") && i+1 < len(args):
+			agent = args[i+1]
+			i++
+		case strings.HasPrefix(a, "--agent="):
+			agent = strings.TrimPrefix(a, "--agent=")
+		}
+	}
+	hook.Run(os.Stdin, agent)
+	return nil
 }
 
 // splitCommand separates the subcommand from the arguments. No subcommand (empty or

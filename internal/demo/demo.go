@@ -39,6 +39,10 @@ func Run(args []string) error {
 		return err
 	}
 
+	opts := store.Options{}
+	if a := argValue(args, "--agent"); a != "" {
+		opts.Agents = []string{a}
+	}
 	sim := newSimulator(tmp)
 	if snapshot != "" {
 		var w, h int
@@ -46,14 +50,44 @@ func Run(args []string) error {
 		sim.fake = true
 		sim.clock = time.Now().Add(-4 * time.Minute)
 		sim.play()
-		fmt.Println(ui.Snapshot(store.Options{}, w, h, tab))
+		fmt.Println(ui.Snapshot(opts, w, h, tab))
 		return nil
 	}
 	go func() {
 		time.Sleep(800 * time.Millisecond)
 		sim.play()
 	}()
-	return ui.Run(store.Options{})
+	return ui.Run(opts)
+}
+
+// writeCodexDemo writes a short, finished Codex rollout in the demo folder.
+func writeCodexDemo(home string) error {
+	t0 := time.Now().Add(-12 * time.Minute)
+	dir := filepath.Join(home, "sessions", t0.Format("2006"), t0.Format("01"), t0.Format("02"))
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	ts := func(sec int) string { return t0.Add(time.Duration(sec) * time.Second).UTC().Format(time.RFC3339Nano) }
+	id := "0199c0de-demo-7000-8000-000000000002"
+	lines := []string{
+		`{"timestamp":"` + ts(0) + `","type":"session_meta","payload":{"id":"` + id + `","cwd":"/home/dika/app","cli_version":"0.60.0"}}`,
+		`{"timestamp":"` + ts(1) + `","type":"turn_context","payload":{"cwd":"/home/dika/app","model":"gpt-5-codex","approval_policy":"on-request"}}`,
+		`{"timestamp":"` + ts(2) + `","type":"event_msg","payload":{"type":"user_message","message":"add pagination to the leave list endpoint"}}`,
+		`{"timestamp":"` + ts(3) + `","type":"event_msg","payload":{"type":"task_started"}}`,
+		`{"timestamp":"` + ts(5) + `","type":"response_item","payload":{"type":"function_call","name":"shell","arguments":"{\"command\":[\"bash\",\"-lc\",\"rg -n ListLeaves internal\"]}","call_id":"c1"}}`,
+		`{"timestamp":"` + ts(9) + `","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":18400,"cached_input_tokens":12800,"output_tokens":620,"total_tokens":19020},"last_token_usage":{"input_tokens":18400,"cached_input_tokens":12800,"output_tokens":620,"total_tokens":19020}}}}`,
+		`{"timestamp":"` + ts(14) + `","type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","call_id":"c2","input":"*** Begin Patch\n*** Update File: internal/leave/handler.go\n*** End Patch"}}`,
+		`{"timestamp":"` + ts(20) + `","type":"response_item","payload":{"type":"function_call","name":"shell","arguments":"{\"command\":[\"bash\",\"-lc\",\"go test ./internal/leave/...\"]}","call_id":"c3"}}`,
+		`{"timestamp":"` + ts(31) + `","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":40100,"cached_input_tokens":30200,"output_tokens":1450,"total_tokens":41550},"last_token_usage":{"input_tokens":21700,"cached_input_tokens":17400,"output_tokens":830,"total_tokens":22530}}}}`,
+		`{"timestamp":"` + ts(32) + `","type":"event_msg","payload":{"type":"task_complete","last_agent_message":"Added pagination."}}`,
+	}
+	path := filepath.Join(dir, "rollout-"+t0.Format("2006-01-02T15-04-05")+"-"+id+".jsonl")
+	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
+		return err
+	}
+	// the session ended 11 minutes ago, so the live Claude session stays the most active one
+	end := t0.Add(32 * time.Second)
+	return os.Chtimes(path, end, end)
 }
 
 // argValue: the argument after flag name ("" if absent). Unknown arguments are ignored.
@@ -70,6 +104,13 @@ func argValue(args []string, name string) string {
 func setupDemoConfig(tmp string) error {
 	os.Setenv("CCWATCH_DIR", tmp)
 	os.Setenv("CLAUDE_CONFIG_DIR", tmp)
+	// other agents: isolated too, plus one finished Codex session to switch to with ]
+	os.Setenv("CODEX_HOME", filepath.Join(tmp, "codex"))
+	os.Setenv("CCWATCH_GEMINI_DIR", filepath.Join(tmp, "gemini"))
+	os.Setenv("CCWATCH_OPENCODE_DIR", filepath.Join(tmp, "opencode"))
+	if err := writeCodexDemo(filepath.Join(tmp, "codex")); err != nil {
+		return err
+	}
 	if err := os.WriteFile(filepath.Join(tmp, "settings.json"), []byte(`{"advisorModel":"claude-opus-5-5"}`), 0o644); err != nil {
 		return err
 	}

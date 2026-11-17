@@ -60,3 +60,33 @@ func AdvisorModel(cwd string) string {
 	}
 	return val
 }
+
+// CodexDir: Codex CLI home ($CODEX_HOME or ~/.codex). Session logs live in sessions/YYYY/MM/DD/rollout-*.jsonl.
+func CodexDir() string {
+	if d := os.Getenv("CODEX_HOME"); d != "" {
+		return d
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".codex")
+}
+
+// GeminiDir: Gemini CLI home (~/.gemini, or CCWATCH_GEMINI_DIR). Chats live in tmp/<project>/chats/session-*.json.
+func GeminiDir() string {
+	if d := os.Getenv("CCWATCH_GEMINI_DIR"); d != "" {
+		return d
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".gemini")
+}
+
+// OpenCodeDir: OpenCode data folder ($XDG_DATA_HOME/opencode or ~/.local/share/opencode).
+func OpenCodeDir() string {
+	if d := os.Getenv("CCWATCH_OPENCODE_DIR"); d != "" {
+		return d
+	}
+	if x := os.Getenv("XDG_DATA_HOME"); x != "" {
+		return filepath.Join(x, "opencode")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "share", "opencode")
+}

@@ -22,23 +22,37 @@ type Store struct {
 	events   *tailer
 	opts     Options
 	lastScan time.Time
+
+	lastProviderScan time.Time
+	sigs             map[string]fileSig // rebuilt-provider session key → last seen file signature
+	codexMeta        map[string]codexMetaInfo
 }
 
 func New(o Options) *Store {
 	return &Store{
-		Sessions: map[string]*Session{},
-		events:   &tailer{path: config.EventsPath()},
-		opts:     o,
+		Sessions:  map[string]*Session{},
+		events:    &tailer{path: config.EventsPath()},
+		opts:      o,
+		sigs:      map[string]fileSig{},
+		codexMeta: map[string]codexMetaInfo{},
 	}
 }
 
 func (st *Store) Options() Options { return st.opts }
 
-func (st *Store) session(id string) *Session {
-	s := st.Sessions[id]
+// session: the Claude Code session id (created if needed).
+func (st *Store) session(id string) *Session { return st.sessionFor(AgentClaude, id) }
+
+// sessionFor: session id of the given agent (created if needed).
+func (st *Store) sessionFor(agent, id string) *Session {
+	key := sessionKey(agent, id)
+	s := st.Sessions[key]
 	if s == nil {
 		s = newSession(id)
-		st.Sessions[id] = s
+		if agent != "" {
+			s.Agent = agent
+		}
+		st.Sessions[key] = s
 	}
 	return s
 }
@@ -48,6 +62,9 @@ func (st *Store) Visible() []*Session {
 	var out []*Session
 	for _, s := range st.Sessions {
 		if st.opts.Dir != "" && !pathmatch.InDir(s.Cwd, st.opts.Dir) {
+			continue
+		}
+		if !st.opts.wantsAgent(s.Agent) {
 			continue
 		}
 		out = append(out, s)
@@ -66,7 +83,12 @@ func (st *Store) Refresh() {
 		st.scanRecentTranscripts(st.opts.Recent)
 	}
 
+	st.scanProviders(now)
+
 	for _, s := range st.Sessions {
+		if !s.IsClaude() {
+			continue // other agents are rebuilt by their provider in scanProviders
+		}
 		st.refreshMetadata(s, now)
 		if s.Transcript != "" {
 			st.tailTranscripts(s, now)

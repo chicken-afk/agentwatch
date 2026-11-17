@@ -40,6 +40,7 @@ type Agent struct {
 	Usage          Usage
 	Transcript     string
 	hookStarted    bool
+	codexTotal     int64
 }
 
 func (a *Agent) Label() string {
@@ -92,6 +93,7 @@ type AdvisorCall struct {
 
 type Session struct {
 	ID, Cwd, Transcript string
+	Agent               string // claude | codex | gemini | opencode | <name from `ccwatch hook --agent`>
 	Start, Last         time.Time
 	Status              string // idle | working | ended
 	EndReason           string
@@ -127,17 +129,34 @@ type Session struct {
 	settingsAt  time.Time
 	defsAt      time.Time
 	defsCwd     string
+	codexTotal  int64 // last Codex total_token_usage.total_tokens (dedupes repeated token_count)
 }
 
 type pendingAgent struct{ desc, model string }
 
 func newSession(id string) *Session {
 	return &Session{
-		ID: id, Status: "idle",
+		ID: id, Status: "idle", Agent: AgentClaude,
 		Agents: map[string]*Agent{}, Stats: map[string]*ModelStat{},
 		tailers: map[string]*tailer{}, seenMsg: map[string]bool{}, seenBlock: map[string]bool{},
 		pendingDesc: map[string][]pendingAgent{}, lastPoint: map[string]int{},
 	}
+}
+
+// AgentClaude is the default agent: events without an agent name come from Claude Code.
+const AgentClaude = "claude"
+
+// IsClaude: whether the session comes from Claude Code (hooks + ~/.claude transcripts).
+// Claude-only parts of the dashboard (advisor, .claude/agents) are hidden for other agents.
+func (s *Session) IsClaude() bool { return s.Agent == "" || s.Agent == AgentClaude }
+
+// sessionKey: the Store.Sessions key. Claude ids stay as-is (existing events.jsonl keeps working);
+// other agents are prefixed so ids from different tools never collide.
+func sessionKey(agent, id string) string {
+	if agent == "" || agent == AgentClaude {
+		return id
+	}
+	return agent + ":" + id
 }
 
 // agent returns the Agent for id (the "agent-" prefix is ignored), creating it if needed.

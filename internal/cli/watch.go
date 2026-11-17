@@ -20,6 +20,22 @@ type watchFlags struct {
 	recent   time.Duration
 	all      bool
 	dir      string
+	agents   listFlag
+	window   time.Duration
+}
+
+// listFlag: a repeatable, comma-separated string flag (--agent codex --agent gemini, or --agent codex,gemini).
+type listFlag []string
+
+func (l *listFlag) String() string { return strings.Join(*l, ",") }
+
+func (l *listFlag) Set(v string) error {
+	for _, p := range strings.Split(v, ",") {
+		if p = strings.ToLower(strings.TrimSpace(p)); p != "" {
+			*l = append(*l, p)
+		}
+	}
+	return nil
 }
 
 func runWatch(args []string) error {
@@ -30,6 +46,8 @@ func runWatch(args []string) error {
 	fs.DurationVar(&f.recent, "recent", 0, "also show transcripts active within this duration, even without hooks (e.g. 30m)")
 	fs.BoolVar(&f.all, "all", false, "show sessions from all folders (default: only sessions in the current folder)")
 	fs.StringVar(&f.dir, "dir", "", "only show sessions in this folder (default: current folder)")
+	fs.Var(&f.agents, "agent", "only show sessions from these agents: claude, codex, gemini, opencode, or a name sent via 'ccwatch hook --agent NAME' (repeatable, comma-separated)")
+	fs.DurationVar(&f.window, "window", store.DefaultWindow, "how far back to load Codex/Gemini/OpenCode sessions (they have no hooks)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -38,7 +56,8 @@ func runWatch(args []string) error {
 
 // options converts the flags into store.Options.
 func (f watchFlags) options() store.Options {
-	o := store.Options{Session: f.session, Recent: f.recent, AdvisorBySession: f.advisors.bySession}
+	o := store.Options{Session: f.session, Recent: f.recent, AdvisorBySession: f.advisors.bySession,
+		Agents: f.agents, Window: f.window}
 
 	// default: only sessions in the folder where ccwatch was started.
 	// --all disables the filter; --session (an explicit session) isn't folder-filtered either.

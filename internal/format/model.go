@@ -38,13 +38,22 @@ func PrettyModel(m string) string {
 	return fam + " " + strings.Join(ver, ".")
 }
 
-// ModelFamily: the model family (opus/sonnet/…) from a model id, "" if unknown.
+var openaiRe = regexp.MustCompile(`(^|[/-])(gpt|codex|o[1-9])([-.]|$)`)
+
+// ModelFamily: the model family from a model id: opus/sonnet/… for Claude, plus "gpt"
+// (gpt-*, codex, o1/o3/o4 models) and "gemini"; "" if unknown.
 func ModelFamily(m string) string {
 	l := strings.ToLower(m)
 	for _, f := range families {
 		if strings.Contains(l, f) {
 			return f
 		}
+	}
+	switch {
+	case strings.Contains(l, "gemini"):
+		return "gemini"
+	case openaiRe.MatchString(l):
+		return "gpt"
 	}
 	return ""
 }

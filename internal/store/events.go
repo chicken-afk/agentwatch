@@ -36,10 +36,24 @@ func (st *Store) ingestEvent(line []byte) {
 	}
 	t, _ := time.Parse(time.RFC3339Nano, str(raw, "ccwatch_ts"))
 	ti, _ := raw["tool_input"].(map[string]any)
-	st.session(sid).applyHook(hookEvent{
-		raw: raw, name: str(raw, "hook_event_name"), t: t,
+	name := str(raw, "hook_event_name")
+	if alias, ok := eventAliases[name]; ok {
+		name = alias
+	}
+	st.sessionFor(str(raw, "ccwatch_agent"), sid).applyHook(hookEvent{
+		raw: raw, name: name, t: t,
 		agentID: agentKey(str(raw, "agent_id")), toolInput: ti,
 	})
+}
+
+// eventAliases maps other tools' hook names (Gemini CLI) onto the Claude Code vocabulary
+// that applyHook understands, so `ccwatch hook --agent gemini` works as-is.
+var eventAliases = map[string]string{
+	"BeforeTool":  "PreToolUse",
+	"AfterTool":   "PostToolUse",
+	"BeforeAgent": "UserPromptSubmit",
+	"AfterAgent":  "Stop",
+	"PreCompress": "PreCompact",
 }
 
 func (s *Session) applyHook(e hookEvent) {
@@ -53,6 +67,9 @@ func (s *Session) applyHook(e hookEvent) {
 	}
 	if v := e.str("permission_mode"); v != "" {
 		s.PermMode = v
+	}
+	if m := e.str("model"); m != "" && !s.IsClaude() {
+		s.Lead = m // other agents: any event may carry the current model
 	}
 
 	e.who, e.mdl = "lead", s.Lead
@@ -92,6 +109,8 @@ func (s *Session) applyHook(e hookEvent) {
 	case "PreCompact":
 		s.Compacts++
 		s.log(e.t, "sys", "", "context compact ("+e.str("trigger")+")", false)
+	case "Message":
+		s.onMessage(e)
 	case "Notification":
 		s.log(e.t, "sys", "", "notif: "+format.OneLine(e.str("message")), false)
 	}
@@ -222,6 +241,36 @@ func (s *Session) onSubagentStop(e hookEvent) {
 	s.log(e.t, a.Label(), a.Model(), "subagent done · "+format.Dur(a.End.Sub(a.Start))+" · "+strconv.Itoa(a.Tools)+" tools", false)
 }
 
+// onMessage: generic event (`ccwatch hook --agent <name>`) for one model reply,
+// with optional token counts: model, input_tokens, output_tokens, cache_read_tokens.
+func (s *Session) onMessage(e hookEvent) {
+	mdl := e.str("model")
+	if mdl == "" {
+		mdl = s.Lead
+	}
+	if mdl == "" {
+		mdl = s.Agent
+	}
+	u := Usage{In: num(e.raw, "input_tokens"), Out: num(e.raw, "output_tokens"), CacheR: num(e.raw, "cache_read_tokens")}
+	s.MainMsgs++
+	s.MainUsage.add(u)
+	s.recordUsage(mdl, "lead", e.t, u)
+	s.Points = append(s.Points, point{T: e.t, Role: "lead", Model: mdl})
+}
+
+// num reads a JSON number (float64 after decoding) as int64.
+func num(m map[string]any, k string) int64 {
+	switch v := m[k].(type) {
+	case float64:
+		return int64(v)
+	case int64:
+		return v
+	case int:
+		return int64(v)
+	}
+	return 0
+}
+
 func descSuffix(d string) string {
 	if d == "" {
 		return ""
@@ -232,10 +281,10 @@ func descSuffix(d string) string {
 // toolSummary: a one-line summary "Tool: main argument".
 func toolSummary(tool string, ti map[string]any) string {
 	arg := ""
-	for _, k := range []string{"command", "file_path", "pattern", "path", "url", "query", "description", "skill", "notebook_path"} {
+	for _, k := range []string{"command", "file_path", "absolute_path", "pattern", "path", "url", "query", "description", "skill", "notebook_path"} {
 		if v := str(ti, k); v != "" {
 			arg = v
-			if k == "file_path" || k == "notebook_path" {
+			if k == "file_path" || k == "absolute_path" || k == "notebook_path" {
 				arg = filepath.Base(v)
 			}
 			break

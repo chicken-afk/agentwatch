@@ -1,7 +1,8 @@
-# ccwatch — live dashboard for Claude Code
+# ccwatch — live dashboard for AI coding agents
 
-A terminal dashboard that shows **which models are used in a Claude Code session, and in what order**:
-the lead (main session), the advisor, and every subagent, live in a Ghostty split next to Claude Code.
+A terminal dashboard that shows **which models an AI coding agent session uses, and in what order**:
+the lead (main session), the advisor, and every subagent, live in a Ghostty split next to your agent.
+It works with **Claude Code, Codex CLI, Gemini CLI and OpenCode** out of the box, and with any other tool through a small hook adapter.
 
 ```
 ╭─ ADVISOR · opus 5.5 ──────╮ ╭─ LEAD · sonnet 5.5 · main session ───────────────────────────╮
@@ -25,7 +26,43 @@ the lead (main session), the advisor, and every subagent, live in a Ghostty spli
 
 Keys: `1-4`/`tab` switch view · `[` `]` switch session · `f` follow the most active session · `j/k`/mouse wheel to scroll · `q` quit.
 
-Colors per model family: opus purple, sonnet orange, haiku blue, fable green.
+Colors per model family: opus purple, sonnet orange, haiku blue, fable green, GPT/Codex cyan, Gemini pink. The header and LEAD box show which agent a session belongs to.
+
+## Supported agents
+
+| Agent | How ccwatch reads it | Setup |
+|---|---|---|
+| **Claude Code** | hooks (`events.jsonl`) + transcripts in `~/.claude/projects` | `ccwatch install` |
+| **Codex CLI** | rollout files `$CODEX_HOME/sessions/YYYY/MM/DD/rollout-*.jsonl` (`~/.codex` by default) | none |
+| **Gemini CLI** | chat files `~/.gemini/tmp/<project>/chats/session-*.json` | none |
+| **OpenCode** | JSON storage `~/.local/share/opencode/storage/{session,message,part}` | none |
+| **Anything else** | events piped to `ccwatch hook --agent <name>` | your tool's hook config |
+
+All of them appear in the same dashboard: `[` `]` switches between sessions, whatever agent they come from. Codex, Gemini and OpenCode are read straight from the files they already write, so they need no install. Only sessions active in the last 24 hours are loaded (`--window` changes this).
+
+What each agent shows:
+- **Model, prompts, tool calls, tokens (in / out / cache), turns, failures, model sequence**: all agents.
+- **Subagents**: Claude Code (Agent tool), Codex (subagent threads: rollouts with `parent_thread_id`) and OpenCode (child sessions from the task tool).
+- **Skills**: Claude Code (`Skill` tool, slash commands); OpenCode (`skill` tool); Gemini (`activate_skill`); Codex (when it reads a `…/<skill>/SKILL.md` file, which is how Codex loads skills). Slash commands typed as a prompt count for every agent.
+- **Advisor** and `.claude/agents` definitions: Claude Code only. Other agents show an **AGENT** box instead (agent, model, folder, and the file being read).
+
+### Other tools: `ccwatch hook --agent <name>`
+Any tool that can run a command on an event can feed the dashboard. Send one JSON object per event on stdin, using Claude Code's hook field names:
+
+```bash
+echo '{"session_id":"s1","cwd":"'"$PWD"'","hook_event_name":"UserPromptSubmit","prompt":"add tests","model":"gpt-5"}' | ccwatch hook --agent aider
+```
+
+| `hook_event_name` | Fields |
+|---|---|
+| `SessionStart` / `SessionEnd` | `model`, `cwd` |
+| `UserPromptSubmit` | `prompt` |
+| `PreToolUse` / `PostToolUse` / `PostToolUseFailure` | `tool_name`, `tool_input` (e.g. `{"command": …}`), `error` |
+| `Message` | one model reply: `model`, `input_tokens`, `output_tokens`, `cache_read_tokens` |
+| `Stop` | the turn finished |
+| `SubagentStart` / `SubagentStop` | `agent_id`, `agent_type` |
+
+Every event needs `session_id`; `cwd` is needed for the folder filter. Gemini-style hook names (`BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `PreCompress`) are accepted as aliases. Use your own name with `--agent` (e.g. `aider`): don't send hooks as `codex`, `gemini` or `opencode`, because those sessions are already read from their files and the two sources would overwrite each other.
 
 ## How it works
 
@@ -78,12 +115,12 @@ ccwatch install --no-rules   # install hooks without the rules
 ## Using it in Ghostty
 
 1. Open a split: **macOS** `Cmd+D` (right) / `Cmd+Shift+D` (down), **Linux** `Ctrl+Shift+O` (right) / `Ctrl+Shift+E` (down).
-2. Left pane: `claude --model sonnet --advisor opus`
+2. Left pane: your agent, e.g. `claude --model sonnet --advisor opus`, `codex`, `gemini` or `opencode`
 3. Right pane: `ccwatch`
 
-By default the dashboard **only shows Claude Code sessions in the folder where `ccwatch` was started** (including its subfolders), and automatically follows whichever of them was most recently active. Example: `cd ~/Works/personal/pos && ccwatch` → only sessions opened in `pos`, `pos/frontend`, `pos/backend`, etc. Ideal width is ≥ 110 columns (advisor on the left). In narrow panes the layout stacks automatically.
+By default the dashboard **only shows agent sessions (Claude Code, Codex, Gemini, OpenCode, …) in the folder where `ccwatch` was started** (including its subfolders), and automatically follows whichever of them was most recently active. Example: `cd ~/Works/personal/pos && ccwatch` → only sessions opened in `pos`, `pos/frontend`, `pos/backend`, etc. Ideal width is ≥ 110 columns (advisor on the left). In narrow panes the layout stacks automatically.
 
-Try it without Claude Code: `ccwatch demo`.
+Try it without any agent: `ccwatch demo` (a live Claude Code session plus a finished Codex session; press `]` to switch).
 
 ### Watch options
 ```bash
@@ -93,6 +130,8 @@ ccwatch --dir ~/Works/personal/pos   # only sessions in a specific folder, where
 ccwatch --session 7f3c9a21     # pin to a specific session (id prefix), no folder filter
 ccwatch --advisor opus         # advisor label when it was set via the --advisor flag (not saved in settings)
 ccwatch --recent 30m           # also show sessions active in the last 30 minutes, even without hooks installed
+ccwatch --agent codex          # only Codex sessions (claude, codex, gemini, opencode, or a hook --agent name; comma-separated)
+ccwatch --window 72h           # load Codex/Gemini/OpenCode sessions from the last 72 hours (default 24h)
 ```
 
 ### Per-session advisor labels
@@ -122,6 +161,12 @@ The short session id is shown in the dashboard header (`session 7f3c9a21`) and c
 - Claude Code sometimes sends "ghost" `SubagentStop` events for its internal summarizer (no `agent_type`, no transcript). ccwatch ignores them.
 - Images you may have seen online show a "JEV fork layer" with scores like p=0.81 and so on. That isn't data Claude Code emits, so it isn't shown. Forked subagents still appear as regular subagents, with the type Claude Code reports.
 - `events.jsonl` is rotated automatically once it exceeds 20 MB.
+- **Codex, Gemini CLI and OpenCode** are read from their on-disk formats, which aren't official APIs either. The Codex token, session_meta and turn_context fields were checked against Codex's source; the rest (Gemini chat files, OpenCode storage) was written from memory of those formats. All three are tested only with sample files, not yet with real sessions on this machine. If a field changes, that agent's numbers go blank while the others keep working.
+- Codex reports one token count per model response; ccwatch counts it once even when Codex repeats it. Context Codex injects as a "user" message (`<environment_context>`, AGENTS.md) isn't counted as a prompt.
+- Gemini CLI: older versions name the project folder `sha256(project path)`. ccwatch can only match it against the folder you run it in (or `--dir`); sessions from subfolders show up with `--all`. Newer versions store the path in `.project_root`, which works everywhere.
+- OpenCode: only the JSON file storage is read. If your OpenCode version keeps sessions in a database instead, those sessions won't show.
+- **Antigravity** (`~/.gemini/antigravity*`) stores conversations in a binary format and isn't supported. Gemini CLI uses `~/.gemini/tmp`.
+- Folders can be overridden: `CODEX_HOME`, `CCWATCH_GEMINI_DIR`, `CCWATCH_OPENCODE_DIR` (or `XDG_DATA_HOME`).
 
 ## Code layout
 
@@ -133,7 +178,7 @@ The short session id is shown in the dashboard header (`session 7f3c9a21`) and c
 | `config` | file locations (`~/.claude`, `CCWATCH_DIR`) and reading `advisorModel` |
 | `hook`, `statusline`, `events` | `ccwatch hook` / `ccwatch statusline` and writing `events.jsonl` |
 | `install` | install/remove hooks, the status line, and skill rules (`settings.json`, `CLAUDE.md`) |
-| `store` | session state from `events.jsonl` + transcripts (models, subagents, skills, advisor) |
+| `store` | session state from `events.jsonl` + transcripts (models, subagents, skills, advisor); `codex.go`, `gemini.go`, `opencode.go` read the other agents' session files |
 | `ui`, `theme` | Bubble Tea dashboard and color palette |
 | `demo` | fake session for `ccwatch demo` |
 | `format`, `pathmatch` | text/number formatting helpers and session-folder matching |

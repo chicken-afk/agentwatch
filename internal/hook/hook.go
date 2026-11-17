@@ -16,7 +16,10 @@ import (
 //     stdout would be injected into Claude's context).
 //   - Never fails or panics to the caller, and is fast, so it never
 //     blocks Claude; the parent process always exits 0.
-func Run(stdin io.Reader) {
+//
+// agent names the tool that sent the event ("" = Claude Code); it is stamped as
+// ccwatch_agent so the dashboard keeps sessions from different tools apart.
+func Run(stdin io.Reader, agent string) {
 	defer func() { _ = recover() }()
 
 	raw, err := io.ReadAll(io.LimitReader(stdin, 32<<20))
@@ -30,6 +33,9 @@ func Run(stdin io.Reader) {
 
 	out := Slim(in)
 	out["ccwatch_ts"] = time.Now().UTC().Format(time.RFC3339Nano)
+	if agent != "" && agent != "claude" {
+		out["ccwatch_agent"] = agent
+	}
 	record, err := json.Marshal(out)
 	if err != nil {
 		return
@@ -43,6 +49,7 @@ var (
 		"tool_name", "tool_use_id", "agent_id", "agent_type", "agent_transcript_path",
 		"source", "reason", "model", "stop_hook_active", "notification_type",
 		"message", "trigger", "error", "is_interrupt",
+		"input_tokens", "output_tokens", "cache_read_tokens", // generic Message events
 	}
 	toolInputKeys = []string{
 		"file_path", "path", "pattern", "command", "description", "url", "query",
