@@ -1,4 +1,4 @@
-module ccwatch
+module github.com/chicken-afk/agentwatch
 
 go 1.22
 

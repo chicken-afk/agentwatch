@@ -1,5 +1,5 @@
 // Package store builds Claude Code session state from two sources:
-// events.jsonl (written by the ccwatch hooks) and Claude Code's own JSONL transcripts.
+// events.jsonl (written by the agentwatch hooks) and Claude Code's own JSONL transcripts.
 package store
 
 import (
@@ -102,7 +102,7 @@ type AdvisorCall struct {
 
 type Session struct {
 	ID, Cwd, Transcript string
-	Agent               string // claude | codex | gemini | opencode | <name from `ccwatch hook --agent`>
+	Agent               string // claude | codex | gemini | opencode | <name from `agentwatch hook --agent`>
 	Start, Last         time.Time
 	Status              string // idle | working | ended
 	EndReason           string

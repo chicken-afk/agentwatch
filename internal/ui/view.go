@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"ccwatch/internal/config"
-	"ccwatch/internal/format"
-	"ccwatch/internal/store"
+	"github.com/chicken-afk/agentwatch/internal/config"
+	"github.com/chicken-afk/agentwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/store"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -51,7 +51,7 @@ func (m *model) View() string {
 
 func (m *model) emptyView(w, h int) string {
 	lines := []string{
-		sBold.Render("CCWATCH") + sDim.Render(" · live dashboard for AI coding agents"),
+		sBold.Render("AGENTWATCH") + sDim.Render(" · live dashboard for AI coding agents"),
 		"",
 		sText.Render("No agent sessions found yet."),
 		sDim.Render("Watching: Claude Code (hooks), Codex, Gemini CLI, OpenCode, omp (session files)."),
@@ -60,17 +60,17 @@ func (m *model) emptyView(w, h int) string {
 	if d := m.st.Options().Dir; d != "" {
 		lines = append(lines,
 			sDim.Render("Only sessions in folder: ")+sText.Render(d),
-			sDim.Render("Show all folders:        ")+"ccwatch --all",
+			sDim.Render("Show all folders:        ")+"agentwatch --all",
 			"",
 		)
 	}
 	lines = append(lines,
-		sDim.Render("Claude Code: ")+"ccwatch install"+sDim.Render(", then start ")+"claude",
+		sDim.Render("Claude Code: ")+"agentwatch install"+sDim.Render(", then start ")+"claude",
 		sDim.Render("Codex / Gemini / OpenCode / omp: just start them in this folder."),
-		sDim.Render("Any other tool: pipe events to ")+"ccwatch hook --agent <name>",
+		sDim.Render("Any other tool: pipe events to ")+"agentwatch hook --agent <name>",
 		"",
-		sDim.Render("Without hooks: ")+"ccwatch --recent 30m"+sDim.Render("  (reads recently active transcripts)"),
-		sDim.Render("Try the demo:  ")+"ccwatch demo",
+		sDim.Render("Without hooks: ")+"agentwatch --recent 30m"+sDim.Render("  (reads recently active transcripts)"),
+		sDim.Render("Try the demo:  ")+"agentwatch demo",
 		"",
 		sDim.Render("events: "+config.EventsPath()),
 	)
@@ -100,7 +100,7 @@ func (m *model) header(s *store.Session, idx, n, w int) string {
 		}
 		el = format.Dur(end.Sub(s.Start))
 	}
-	left := sBold.Render("CCWATCH") + sDim.Render("  ·  ") + agentBadge(s.Agent) + sDim.Render(" · ") +
+	left := sBold.Render("AGENTWATCH") + sDim.Render("  ·  ") + agentBadge(s.Agent) + sDim.Render(" · ") +
 		sText.Render("session "+format.Short(s.ID)) + sDim.Render(" · ") + sText.Render(format.BaseDir(s.Cwd)) +
 		sDim.Render(" · ") + sText.Render(el) + "   " + m.statusBadge(s)
 	follow := "follow"

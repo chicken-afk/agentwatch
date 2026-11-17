@@ -1,6 +1,6 @@
-// Package config resolves ccwatch/Claude Code file locations and reads the
+// Package config resolves agentwatch/Claude Code file locations and reads the
 // relevant Claude Code settings. Paths are read from the environment on every
-// call, so env changes (e.g. by `ccwatch demo`) take effect immediately.
+// call, so env changes (e.g. by `agentwatch demo`) take effect immediately.
 package config
 
 import (
@@ -18,15 +18,27 @@ func ClaudeDir() string {
 	return filepath.Join(home, ".claude")
 }
 
-// DataDir: where ccwatch stores events.jsonl (CCWATCH_DIR overrides the default).
+// DataDir: where agentwatch stores events.jsonl (AGENTWATCH_DIR overrides the default).
 func DataDir() string {
-	if d := os.Getenv("CCWATCH_DIR"); d != "" {
+	if d := Env("DIR"); d != "" {
 		return d
 	}
-	return filepath.Join(ClaudeDir(), "ccwatch")
+	return filepath.Join(ClaudeDir(), "agentwatch")
 }
 
 func EventsPath() string { return filepath.Join(DataDir(), "events.jsonl") }
+
+// Env reads AGENTWATCH_<name>, falling back to the pre-rebrand CCWATCH_<name>.
+func Env(name string) string {
+	if v := os.Getenv("AGENTWATCH_" + name); v != "" {
+		return v
+	}
+	return os.Getenv("CCWATCH_" + name)
+}
+
+// LegacyEventsPath: where hooks installed before the rebrand (ccwatch) still write.
+// The dashboard reads it too, so Claude sessions started with the old hooks stay visible.
+func LegacyEventsPath() string { return filepath.Join(ClaudeDir(), "ccwatch", "events.jsonl") }
 
 func SettingsPath() string { return filepath.Join(ClaudeDir(), "settings.json") }
 
@@ -70,9 +82,9 @@ func CodexDir() string {
 	return filepath.Join(home, ".codex")
 }
 
-// GeminiDir: Gemini CLI home (~/.gemini, or CCWATCH_GEMINI_DIR). Chats live in tmp/<project>/chats/session-*.json.
+// GeminiDir: Gemini CLI home (~/.gemini, or AGENTWATCH_GEMINI_DIR). Chats live in tmp/<project>/chats/session-*.json.
 func GeminiDir() string {
-	if d := os.Getenv("CCWATCH_GEMINI_DIR"); d != "" {
+	if d := Env("GEMINI_DIR"); d != "" {
 		return d
 	}
 	home, _ := os.UserHomeDir()
@@ -81,7 +93,7 @@ func GeminiDir() string {
 
 // OpenCodeDir: OpenCode data folder ($XDG_DATA_HOME/opencode or ~/.local/share/opencode).
 func OpenCodeDir() string {
-	if d := os.Getenv("CCWATCH_OPENCODE_DIR"); d != "" {
+	if d := Env("OPENCODE_DIR"); d != "" {
 		return d
 	}
 	if x := os.Getenv("XDG_DATA_HOME"); x != "" {
@@ -91,10 +103,10 @@ func OpenCodeDir() string {
 	return filepath.Join(home, ".local", "share", "opencode")
 }
 
-// OmpDir: oh-my-pi (omp) home (~/.omp, or CCWATCH_OMP_DIR). Sessions live in
+// OmpDir: oh-my-pi (omp) home (~/.omp, or AGENTWATCH_OMP_DIR). Sessions live in
 // agent/sessions/<encoded-cwd>/<time>_<id>.jsonl (and profiles/<name>/agent/sessions/…).
 func OmpDir() string {
-	if d := os.Getenv("CCWATCH_OMP_DIR"); d != "" {
+	if d := Env("OMP_DIR"); d != "" {
 		return d
 	}
 	home, _ := os.UserHomeDir()

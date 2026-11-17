@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"ccwatch/internal/format"
-	"ccwatch/internal/store"
+	"github.com/chicken-afk/agentwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/store"
 )
 
 const advisorActiveWindow = 8 * time.Second // after the last call, the advisor still counts as "advising"
@@ -20,7 +20,7 @@ func (m *model) advisorBox(s *store.Session, w, h int) string {
 			sDim.Render("enable with:"),
 			sText.Render("claude --advisor opus"),
 			sDim.Render("or label manually:"),
-			sText.Render("ccwatch --advisor opus"),
+			sText.Render("agentwatch --advisor opus"),
 		}
 		return box(sBold.Render("ADVISOR"), cBorder, w, lines, max(0, h-2))
 	}

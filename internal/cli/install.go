@@ -3,18 +3,23 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"os"
 
-	"ccwatch/internal/config"
-	"ccwatch/internal/install"
+	"github.com/chicken-afk/agentwatch/internal/config"
+	"github.com/chicken-afk/agentwatch/internal/install"
 )
 
 func runInstall(args []string) error {
 	fs := flag.NewFlagSet("install", flag.ExitOnError)
-	statusline := fs.Bool("statusline", false, "also install the ccwatch status line (only if no other statusLine is set)")
+	statusline := fs.Bool("statusline", false, "also install the agentwatch status line (only if no other statusLine is set)")
 	settings := fs.String("settings", config.SettingsPath(), "path settings.json")
 	noRules := fs.Bool("no-rules", false, "do not install the skill rules into ~/.claude/CLAUDE.md")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	// pre-rebrand installs: move …/ccwatch to …/agentwatch first, so the hooks point at the new name
+	if _, err := install.MigrateBinaryName(os.Stdout); err != nil {
+		fmt.Fprintln(os.Stderr, "warning:", err)
 	}
 	if err := install.InstallHooks(*settings, *statusline); err != nil {
 		return fmt.Errorf("install failed: %w", err)
@@ -46,7 +51,7 @@ func runUninstall(args []string) error {
 func runRules(args []string) error {
 	fs := flag.NewFlagSet("rules", flag.ExitOnError)
 	settings := fs.String("settings", config.SettingsPath(), "path to settings.json (CLAUDE.md lives in the same folder)")
-	remove := fs.Bool("remove", false, "remove the ccwatch skill rules")
+	remove := fs.Bool("remove", false, "remove the agentwatch skill rules")
 	show := fs.Bool("show", false, "print the rules without writing anything")
 	if err := fs.Parse(args); err != nil {
 		return err

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"ccwatch/internal/config"
-	"ccwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/config"
+	"github.com/chicken-afk/agentwatch/internal/format"
 )
 
 // OpenCode stores everything as small JSON files under <data>/storage:

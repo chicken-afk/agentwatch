@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"ccwatch/internal/format"
-	"ccwatch/internal/store"
+	"github.com/chicken-afk/agentwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/store"
 )
 
 func (m *model) leadBox(s *store.Session, w int) string {
@@ -98,7 +98,7 @@ func (m *model) logBox(s *store.Session, w, rows int) string {
 		if s.HasHooks || !s.IsClaude() {
 			lines = []string{sDim.Render("waiting for events…")}
 		} else {
-			lines = []string{sYel.Render("hooks not installed for this session — run `ccwatch install` for a live log")}
+			lines = []string{sYel.Render("hooks not installed for this session — run `agentwatch install` for a live log")}
 		}
 	}
 	return box(sBold.Render("SESSION LOG"), cBorder, w, lines, rows)

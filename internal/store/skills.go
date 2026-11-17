@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"ccwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/format"
 )
 
 // SkillUse: one skill use, either called by Claude via the Skill tool

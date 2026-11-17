@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"ccwatch/internal/store"
+	"github.com/chicken-afk/agentwatch/internal/store"
 
 	"github.com/charmbracelet/lipgloss"
 )

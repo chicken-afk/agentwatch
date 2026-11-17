@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"ccwatch/internal/store"
-	"ccwatch/internal/ui"
+	"github.com/chicken-afk/agentwatch/internal/store"
+	"github.com/chicken-afk/agentwatch/internal/ui"
 )
 
 const (
@@ -21,8 +21,8 @@ const (
 
 // Run runs the demo.
 //
-//	ccwatch demo                  play live
-//	ccwatch demo --snapshot 140x45  print a single frame (for tests); --tab N picks the tab (0-3)
+//	agentwatch demo                  play live
+//	agentwatch demo --snapshot 140x45  print a single frame (for tests); --tab N picks the tab (0-3)
 func Run(args []string) error {
 	snapshot := argValue(args, "--snapshot")
 	tab := 0
@@ -30,7 +30,7 @@ func Run(args []string) error {
 		fmt.Sscanf(v, "%d", &tab)
 	}
 
-	tmp, err := os.MkdirTemp("", "ccwatch-demo-")
+	tmp, err := os.MkdirTemp("", "agentwatch-demo-")
 	if err != nil {
 		return err
 	}
@@ -100,14 +100,14 @@ func argValue(args []string, name string) string {
 	return ""
 }
 
-// setupDemoConfig points ccwatch at a temporary folder and prepares settings + sample subagents.
+// setupDemoConfig points agentwatch at a temporary folder and prepares settings + sample subagents.
 func setupDemoConfig(tmp string) error {
-	os.Setenv("CCWATCH_DIR", tmp)
+	os.Setenv("AGENTWATCH_DIR", tmp)
 	os.Setenv("CLAUDE_CONFIG_DIR", tmp)
 	// other agents: isolated too, plus one finished Codex session to switch to with ]
 	os.Setenv("CODEX_HOME", filepath.Join(tmp, "codex"))
-	os.Setenv("CCWATCH_GEMINI_DIR", filepath.Join(tmp, "gemini"))
-	os.Setenv("CCWATCH_OPENCODE_DIR", filepath.Join(tmp, "opencode"))
+	os.Setenv("AGENTWATCH_GEMINI_DIR", filepath.Join(tmp, "gemini"))
+	os.Setenv("AGENTWATCH_OPENCODE_DIR", filepath.Join(tmp, "opencode"))
 	if err := writeCodexDemo(filepath.Join(tmp, "codex")); err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (d *simulator) ev(name string, extra map[string]any) {
 	e := map[string]any{
 		"session_id": d.sid, "transcript_path": d.transcript, "cwd": d.cwd,
 		"hook_event_name": name, "permission_mode": "acceptEdits",
-		"ccwatch_ts": d.now().UTC().Format(time.RFC3339Nano),
+		"agentwatch_ts": d.now().UTC().Format(time.RFC3339Nano),
 	}
 	for k, v := range extra {
 		e[k] = v

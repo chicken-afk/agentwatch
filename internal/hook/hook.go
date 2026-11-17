@@ -1,4 +1,4 @@
-// Package hook handles `ccwatch hook`: called by Claude Code on every event,
+// Package hook handles `agentwatch hook`: called by Claude Code on every event,
 // it summarizes the payload and appends it to events.jsonl.
 package hook
 
@@ -7,8 +7,8 @@ import (
 	"io"
 	"time"
 
-	"ccwatch/internal/events"
-	"ccwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/events"
+	"github.com/chicken-afk/agentwatch/internal/format"
 )
 
 // Run reads one hook payload from stdin. Important rules:
@@ -18,7 +18,7 @@ import (
 //     blocks Claude; the parent process always exits 0.
 //
 // agent names the tool that sent the event ("" = Claude Code); it is stamped as
-// ccwatch_agent so the dashboard keeps sessions from different tools apart.
+// agentwatch_agent so the dashboard keeps sessions from different tools apart.
 func Run(stdin io.Reader, agent string) {
 	defer func() { _ = recover() }()
 
@@ -32,9 +32,9 @@ func Run(stdin io.Reader, agent string) {
 	}
 
 	out := Slim(in)
-	out["ccwatch_ts"] = time.Now().UTC().Format(time.RFC3339Nano)
+	out["agentwatch_ts"] = time.Now().UTC().Format(time.RFC3339Nano)
 	if agent != "" && agent != "claude" {
-		out["ccwatch_agent"] = agent
+		out["agentwatch_agent"] = agent
 	}
 	record, err := json.Marshal(out)
 	if err != nil {

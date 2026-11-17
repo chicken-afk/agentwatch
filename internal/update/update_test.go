@@ -21,7 +21,7 @@ func TestDescribe(t *testing.T) {
 }
 
 func TestSourceDirOverride(t *testing.T) {
-	t.Setenv("CCWATCH_SRC", "/tmp/x")
+	t.Setenv("AGENTWATCH_SRC", "/tmp/x")
 	if d, err := SourceDir(); err != nil || d != "/tmp/x" {
 		t.Errorf("SourceDir() = %q, %v", d, err)
 	}

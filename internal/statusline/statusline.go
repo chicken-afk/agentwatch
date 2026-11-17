@@ -1,4 +1,4 @@
-// Package statusline handles `ccwatch statusline`: it prints a compact
+// Package statusline handles `agentwatch statusline`: it prints a compact
 // status line for Claude Code and records lead model changes.
 package statusline
 
@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"ccwatch/internal/config"
-	"ccwatch/internal/events"
-	"ccwatch/internal/format"
-	"ccwatch/internal/theme"
+	"github.com/chicken-afk/agentwatch/internal/config"
+	"github.com/chicken-afk/agentwatch/internal/events"
+	"github.com/chicken-afk/agentwatch/internal/format"
+	"github.com/chicken-afk/agentwatch/internal/theme"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
@@ -73,7 +73,7 @@ func recordModelChange(in input) {
 	record, _ := json.Marshal(map[string]any{
 		"session_id": in.SessionID, "transcript_path": in.TranscriptPath, "cwd": in.dir(),
 		"hook_event_name": "StatusLine", "model": in.Model.ID,
-		"ccwatch_ts": time.Now().UTC().Format(time.RFC3339Nano),
+		"agentwatch_ts": time.Now().UTC().Format(time.RFC3339Nano),
 	})
 	_ = events.Append(record)
 }

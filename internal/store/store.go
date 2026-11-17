@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"ccwatch/internal/config"
-	"ccwatch/internal/pathmatch"
+	"github.com/chicken-afk/agentwatch/internal/config"
+	"github.com/chicken-afk/agentwatch/internal/pathmatch"
 )
 
 const (
@@ -20,6 +20,7 @@ const (
 type Store struct {
 	Sessions map[string]*Session
 	events   *tailer
+	legacy   *tailer // events.jsonl of pre-rebrand (ccwatch) hooks
 	opts     Options
 	lastScan time.Time
 
@@ -32,6 +33,7 @@ func New(o Options) *Store {
 	return &Store{
 		Sessions:  map[string]*Session{},
 		events:    &tailer{path: config.EventsPath()},
+		legacy:    &tailer{path: config.LegacyEventsPath()},
 		opts:      o,
 		sigs:      map[string]fileSig{},
 		codexMeta: map[string]codexMetaInfo{},
@@ -76,6 +78,9 @@ func (st *Store) Visible() []*Session {
 // Refresh reads new events & transcripts and updates every session.
 func (st *Store) Refresh() {
 	st.events.read(st.ingestEvent)
+	if st.legacy.path != st.events.path {
+		st.legacy.read(st.ingestEvent)
+	}
 
 	now := time.Now()
 	if st.opts.Recent > 0 && now.Sub(st.lastScan) > recentScanEvery {

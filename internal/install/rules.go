@@ -7,15 +7,19 @@ import (
 	"strings"
 )
 
-// Skill rules block managed by ccwatch in ~/.claude/CLAUDE.md (user-level memory,
+// Skill rules block managed by agentwatch in ~/.claude/CLAUDE.md (user-level memory,
 // loaded by Claude Code in EVERY project). Wrapped in markers so it can be updated/removed
 // without touching the rest of the file.
 const (
-	rulesStart = "<!-- ccwatch:skills:start -->"
-	rulesEnd   = "<!-- ccwatch:skills:end -->"
+	rulesStart = "<!-- agentwatch:skills:start -->"
+	rulesEnd   = "<!-- agentwatch:skills:end -->"
+
+	// markers written before the rebrand: replaced on install, removed on uninstall
+	legacyStart = "<!-- ccwatch:skills:start -->"
+	legacyEnd   = "<!-- ccwatch:skills:end -->"
 )
 
-const rulesBody = `## Skills (managed by ccwatch)
+const rulesBody = `## Skills (managed by agentwatch)
 - Before starting a task, load every relevant skill by calling the **Skill** tool. Mentioning a skill by name does not load it.
 - When you report which skills you used, list only the skills you invoked with the Skill tool in the current task. Skills invoked in earlier tasks are "still in context", not "used".
 - If no skill is relevant, say so instead of naming one.`
@@ -23,12 +27,19 @@ const rulesBody = `## Skills (managed by ccwatch)
 // RulesBlock: the full rules block including markers.
 func RulesBlock() string { return rulesStart + "\n" + rulesBody + "\n" + rulesEnd }
 
-// upsertRules: install/update the ccwatch block. Returns the new content and whether it changed.
+// upsertRules: install/update the agentwatch block. Returns the new content and whether it changed.
 func upsertRules(content string) (string, bool) {
 	block := RulesBlock()
 	if i, j, ok := findBlock(content); ok {
 		out := content[:i] + block + content[j:]
+		if li, lj, ok := findMarked(out, legacyStart, legacyEnd); ok {
+			out, _ = cutBlock(out, li, lj)
+		}
 		return out, out != content
+	}
+	if i, j, ok := findMarked(content, legacyStart, legacyEnd); ok {
+		out := content[:i] + block + content[j:] // the old ccwatch block becomes the agentwatch block
+		return out, true
 	}
 	out := strings.TrimRight(content, "\n")
 	if out != "" {
@@ -37,12 +48,20 @@ func upsertRules(content string) (string, bool) {
 	return out + block + "\n", true
 }
 
-// removeRules: remove the ccwatch block (along with the surrounding blank lines).
+// removeRules: remove the agentwatch block (along with the surrounding blank lines).
 func removeRules(content string) (string, bool) {
-	i, j, ok := findBlock(content)
-	if !ok {
-		return content, false
+	changed := false
+	for _, m := range [][2]string{{rulesStart, rulesEnd}, {legacyStart, legacyEnd}} {
+		if i, j, ok := findMarked(content, m[0], m[1]); ok {
+			content, _ = cutBlock(content, i, j)
+			changed = true
+		}
 	}
+	return content, changed
+}
+
+// cutBlock removes content[i:j] along with the surrounding blank lines.
+func cutBlock(content string, i, j int) (string, bool) {
 	before := strings.TrimRight(content[:i], "\n")
 	after := strings.TrimLeft(content[j:], "\n")
 	out := before
@@ -56,17 +75,20 @@ func removeRules(content string) (string, bool) {
 	return out, true
 }
 
-// findBlock: the range [i, j) of the ccwatch block in content, including both markers.
-func findBlock(content string) (i, j int, ok bool) {
-	i = strings.Index(content, rulesStart)
+// findBlock: the range [i, j) of the agentwatch block in content, including both markers.
+func findBlock(content string) (i, j int, ok bool) { return findMarked(content, rulesStart, rulesEnd) }
+
+// findMarked: the range [i, j) of the block between start and end markers (inclusive).
+func findMarked(content, start, end string) (i, j int, ok bool) {
+	i = strings.Index(content, start)
 	if i < 0 {
 		return 0, 0, false
 	}
-	end := strings.Index(content[i:], rulesEnd)
-	if end < 0 {
+	e := strings.Index(content[i:], end)
+	if e < 0 {
 		return 0, 0, false
 	}
-	return i, i + end + len(rulesEnd), true
+	return i, i + e + len(end), true
 }
 
 // readMemory: CLAUDE.md content plus its original bytes (nil if the file doesn't exist yet).
@@ -89,13 +111,13 @@ func InstallRules(path string) error {
 	}
 	out, changed := upsertRules(content)
 	if !changed {
-		fmt.Println("ccwatch skill rules already installed in", path)
+		fmt.Println("agentwatch skill rules already installed in", path)
 		return nil
 	}
 	if err := writeWithBackup(path, []byte(out), orig); err != nil {
 		return err
 	}
-	fmt.Println("ccwatch skill rules installed in", path, "(applies to all projects)")
+	fmt.Println("agentwatch skill rules installed in", path, "(applies to all projects)")
 	return nil
 }
 
@@ -110,19 +132,19 @@ func UninstallRules(path string) error {
 		return nil
 	}
 	if strings.TrimSpace(out) == "" {
-		// file was created by ccwatch and contains only this block → just delete it
+		// file was created by agentwatch and contains only this block → just delete it
 		if err := backup(path, orig); err != nil {
 			return err
 		}
 		if err := os.Remove(path); err != nil {
 			return err
 		}
-		fmt.Println("ccwatch skill rules removed;", path, "deleted because it was empty")
+		fmt.Println("agentwatch skill rules removed;", path, "deleted because it was empty")
 		return nil
 	}
 	if err := writeWithBackup(path, []byte(out), orig); err != nil {
 		return err
 	}
-	fmt.Println("ccwatch skill rules removed from", path)
+	fmt.Println("agentwatch skill rules removed from", path)
 	return nil
 }
