@@ -1,232 +1,282 @@
-# agentwatch — live dashboard for AI coding agents
+<div align="center">
 
-A terminal dashboard that shows **which models an AI coding agent session uses, and in what order**:
-the lead (main session), the advisor, and every subagent, live in a Ghostty split next to your agent.
-It works with **Claude Code, Codex CLI, Gemini CLI, OpenCode and oh-my-pi (omp)** out of the box, and with any other tool through a small hook adapter.
+<img src="docs/images/splash.png" alt="agentwatch" width="720">
 
-```
-╭─ ADVISOR · opus 5.5 ──────╮ ╭─ LEAD · sonnet 5.5 · main session ───────────────────────────╮
-│ calls   3                 │ │ status  ◓ working  ⟶ Bash: go test ./internal/leave/...     │
-│ ◇ 00:27:15 lead · Bash    │ ╰──────────────────────────────────────────────────────────────╯
-│ ◇ 00:27:10 lead · Bash    │ ╭─ MODEL SEQUENCE · 20 steps ──────────────────────────────────╮
-│ ◇ 00:26:53 lead · Read    │ │ … sonnet 5.5 → opus 5.5 (advisor) → sonnet 5.5 → haiku 5.5   │
-│                           │ │ 00:27:10  ● opus 5.5    advisor   1 calls                    │
-│                           │ │ 00:27:11  ● haiku 5.5   search    1 msgs                     │
-╰───────────────────────────╯ ╰──────────────────────────────────────────────────────────────╯
-```
+# agentwatch
 
-## What it shows
+**See which model your AI coding agent is actually using, live.**
 
-| Tab | Contents |
-|---|---|
-| **1 dashboard** | LEAD box (agent, model, status, running tool, prompt, tokens), ADVISOR for Claude Code (model, call count, history + the context that triggered each call) or AGENT for other agents (agent, model, folder, source file), SKILLS (skills used in the current prompt: who invoked them, still active `●` or done `✓`, plus a summary of earlier prompts), MODEL SEQUENCE (chain + latest steps), SUBAGENT cards (model, running/done, duration, tools, tokens, task), MODEL USAGE table (role, messages, tokens in/out/cache, output share, active time), SESSION LOG |
-| **2 model sequence** | Every model step since the session started, in order, including gaps |
-| **3 log** | All events: prompts, tool calls, failures, subagent dispatches, advisor, compact |
-| **4 subagents** | Table of every subagent in the session, plus configured subagents that haven't been called yet (status `ready`) |
+A terminal dashboard for Claude Code, Codex CLI, Gemini CLI, OpenCode and oh-my-pi:
+the lead model, the advisor, every subagent, their skills and their tokens, step by step.
 
-On launch a short animation (about 2 s) scans the agentwatch logo in the agents' colors while sessions load in the background. It ends with links to this repository and the author's GitHub and LinkedIn, all clickable (Cmd/Ctrl+click in terminals that support links, such as Ghostty, iTerm2, WezTerm or kitty). It always plays to the end; then press **Enter** to open the dashboard (`q` quits). `--no-splash` or `AGENTWATCH_NO_SPLASH=1` opens the dashboard directly.
+[![Release](https://img.shields.io/github/v/release/chicken-afk/agentwatch?color=B48EF0&label=release)](https://github.com/chicken-afk/agentwatch/releases)
+[![Go](https://img.shields.io/github/go-mod/go-version/chicken-afk/agentwatch?color=56B6C2)](go.mod)
+![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-6CA0F5)
 
-Keys: `1-4`/`tab` switch view · `[` `]` switch session · `f` follow the most active session · `j/k`/mouse wheel to scroll · `q` quit.
+[Install](#install) · [Quick start](#quick-start) · [Supported agents](#supported-agents) · [Usage](#usage) · [How it works](#how-it-works)
 
-Colors per model family: opus purple, sonnet orange, haiku blue, fable green, GPT/Codex cyan, Gemini pink. The header and LEAD box show which agent a session belongs to.
+</div>
 
-## Supported agents
+<br>
 
-| Agent | How agentwatch reads it | Setup |
-|---|---|---|
-| **Claude Code** | hooks (`events.jsonl`) + transcripts in `~/.claude/projects` | `agentwatch install` |
-| **Codex CLI** | rollout files `$CODEX_HOME/sessions/YYYY/MM/DD/rollout-*.jsonl` (`~/.codex` by default) | none |
-| **Gemini CLI** | chat files `~/.gemini/tmp/<project>/chats/session-*.json` | none |
-| **OpenCode** | JSON storage `~/.local/share/opencode/storage/{session,message,part}` | none |
-| **oh-my-pi (`omp`)** | session files `~/.omp/agent/sessions/<project>/<time>_<id>.jsonl` (plus named profiles in `~/.omp/profiles/*/agent/sessions`) | none |
-| **Anything else** | events piped to `agentwatch hook --agent <name>` | your tool's hook config |
+![The agentwatch dashboard next to a Claude Code session](docs/images/dashboard.png)
 
-All of them appear in the same dashboard: `[` `]` switches between sessions, whatever agent they come from. Codex, Gemini, OpenCode and omp are read straight from the files they already write, so they need no install. Only sessions active in the last 24 hours are loaded (`--window` changes this).
+## Why
 
-What each agent shows:
-- **Model, prompts, tool calls, tokens (in / out / cache), turns, failures, model sequence**: all agents.
-- **Subagents**: Claude Code (Agent tool), Codex (subagent threads: rollouts with `parent_thread_id`), OpenCode (child sessions from the task tool) and omp (workers saved as `<session>/<Name>.jsonl`, with their type such as `scout` or `task`).
-- **Skills**: Claude Code (`Skill` tool, slash commands); OpenCode (`skill` tool); Gemini (`activate_skill`); Codex (when it reads a `…/<skill>/SKILL.md` file, which is how Codex loads skills); omp (`/skill:<name> …` prompts, and the `read` tool loading a `SKILL.md` or `skill://` file). Slash commands typed as a prompt count for every agent.
-- **Advisor** and `.claude/agents` definitions: Claude Code only. Other agents show an **AGENT** box instead (agent, model, folder, and the file being read).
+Modern coding agents don't run on one model. In a single prompt, Claude Code can hand work to an advisor on a bigger model and to several subagents on smaller ones, and Codex, Gemini CLI, OpenCode and omp all delegate in their own way. The terminal shows none of it: you can't tell which model answered, which subagent ran, or what each step cost.
 
-### Other tools: `agentwatch hook --agent <name>`
-Any tool that can run a command on an event can feed the dashboard. Send one JSON object per event on stdin, using Claude Code's hook field names:
+agentwatch sits in a split next to your agent and shows exactly that, as it happens.
 
-```bash
-echo '{"session_id":"s1","cwd":"'"$PWD"'","hook_event_name":"UserPromptSubmit","prompt":"add tests","model":"gpt-5"}' | agentwatch hook --agent aider
-```
+## Features
 
-| `hook_event_name` | Fields |
-|---|---|
-| `SessionStart` / `SessionEnd` | `model`, `cwd` |
-| `UserPromptSubmit` | `prompt` |
-| `PreToolUse` / `PostToolUse` / `PostToolUseFailure` | `tool_name`, `tool_input` (e.g. `{"command": …}`), `error` |
-| `Message` | one model reply: `model`, `input_tokens`, `output_tokens`, `cache_read_tokens` |
-| `Stop` | the turn finished |
-| `SubagentStart` / `SubagentStop` | `agent_id`, `agent_type` |
+- **Every model, in order.** Lead, advisor and subagents, with a running model sequence (`sonnet → opus (advisor) → haiku (search) → …`).
+- **Subagents at a glance.** Model, status, duration, tool calls, tokens and task for each one, plus configured agents that haven't been called yet.
+- **Skills in context.** Which skills were invoked in this prompt, by whom, and which are still loaded from earlier prompts.
+- **Token usage per model.** Input, output and cache tokens, and each model's share of the output.
+- **One dashboard for every agent.** Claude Code, Codex, Gemini CLI, OpenCode and omp side by side; `[` `]` switches sessions.
+- **Folder-aware.** By default it only shows sessions started in the current folder, and follows the most active one.
+- **Zero setup for most agents.** It reads the session files the agents already write. Only Claude Code needs a one-time hook install.
 
-Every event needs `session_id`; `cwd` is needed for the folder filter. Gemini-style hook names (`BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `PreCompress`) are accepted as aliases. Use your own name with `--agent` (e.g. `aider`): don't send hooks as `codex`, `gemini`, `opencode` or `omp`, because those sessions are already read from their files and the two sources would overwrite each other.
+## Install
 
-## How it works
+**macOS and Linux** (Intel or Apple Silicon / ARM), no Go needed:
 
-Steps 1–5 are for Claude Code; step 6 covers the other agents.
-
-1. **Hooks** (`agentwatch hook`): Claude Code calls it on every event (SessionStart, UserPromptSubmit, Pre/PostToolUse, SubagentStart/Stop, Stop, etc.). The payload is summarized and appended to `~/.claude/agentwatch/events.jsonl`. The hook never writes to stdout and always exits 0, so it never gets in Claude's way.
-2. **Transcript**: the dashboard tails the session transcript `~/.claude/projects/<proj>/<session>.jsonl` and the subagent transcripts `…/<session>/subagents/agent-*.jsonl`. This is where it gets the **actual model** per message, tokens, tool counts, and advisor calls (`server_tool_use` named `advisor`).
-3. **Skills**: recorded from the `Skill` tool calls Claude makes (PreToolUse hook + transcript, for both lead and subagents) and from slash commands you type (`/name args`, except built-ins like `/clear`, `/model`). The first word after the name is read as a **subcommand**, e.g. `/impeccable layout page …` → `impeccable layout`, with the remaining args as context. Skills the **lead** invoked in earlier prompts are shown as **still in context (lead)** (`◆`), because their content stays in the lead's context for the rest of the session; Claude Code even re-attaches them after a compact (the `invoked_skills` attachment in the transcript, which agentwatch also reads). Skills invoked by a **subagent** only live in that subagent's context, so they appear as **subagent history** (`◇`). Note: "in context" means the skill's instructions are available to Claude, not that Claude actually followed them in this prompt; the only ones certainly used are those shown at the top (invoked in the current prompt). Skills since the last prompt = the current task; they stay active while the lead/subagent that invoked them is still working.
-4. **Subagent definitions**: `.claude/agents/*.md` in the project (searched upward from the session folder) and `~/.claude/agents/*.md`. The `name`, `model`, and `description` from the frontmatter are used to show subagents that are **ready but not called yet**. If names collide, the project version wins. They're re-read every 15 seconds, so new agents show up right away.
-5. **Status line** (optional, `agentwatch statusline`): shows the lead + advisor models under the Claude Code prompt, and records `/model` switches for the dashboard.
-6. **Other agents**: every ~1.5 s agentwatch looks for Codex, Gemini CLI, OpenCode and omp session files changed within `--window` (default 24 h). Codex and omp sessions are append-only JSONL, so they're tailed line by line like Claude transcripts. Gemini and OpenCode rewrite their JSON files, so a session is rebuilt from scratch whenever one of its files changes. Events from `agentwatch hook --agent <name>` go through the same `events.jsonl` as Claude Code's hooks, tagged with the agent name. A session still marked working whose files have been quiet for 5 minutes is shown as idle.
-
-## Installation
-
-### Install script (macOS & Linux, no Go needed)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chicken-afk/agentwatch/main/install.sh | sh
 ```
-- Downloads the latest release for your system (macOS/Linux, Intel/ARM), verifies its SHA-256 checksum, and installs it to `~/.local/bin/agentwatch`.
-- If `~/.local/bin` isn't on your `PATH` yet, it prints the one line to add for your shell.
-- `AGENTWATCH_INSTALL_DIR=/usr/local/bin` installs somewhere else; `AGENTWATCH_VERSION=v0.2.0` picks a specific release.
-- Then run `agentwatch`. Using Claude Code? Also run `agentwatch install` once (see below).
 
-### Or with `go install` (Go 1.22+)
+The script downloads the latest [release](https://github.com/chicken-afk/agentwatch/releases) for your system, verifies its SHA-256 checksum and installs it to `~/.local/bin`. If that folder isn't on your `PATH`, it prints the one line to add for your shell.
+
+<details>
+<summary>Other ways to install</summary>
+
+**With Go** (1.22+):
+
 ```bash
 go install github.com/chicken-afk/agentwatch@latest
 ```
-This puts the binary in `$(go env GOPATH)/bin` (usually `~/go/bin`), which is often **not** on your `PATH` on macOS. If `agentwatch` then says `command not found`, add it once:
+
+The binary goes to `$(go env GOPATH)/bin` (usually `~/go/bin`), which is often not on `PATH` on macOS. If `agentwatch` then says `command not found`:
+
 ```bash
 echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.zshrc && . ~/.zshrc
 ```
 
-### Or build it yourself
+**From source:**
+
 ```bash
+git clone https://github.com/chicken-afk/agentwatch.git && cd agentwatch
 go build -o ~/.local/bin/agentwatch .
 ```
 
-### Updating
+**Install script options:** `AGENTWATCH_INSTALL_DIR=/usr/local/bin` installs elsewhere, `AGENTWATCH_VERSION=v0.1.0` picks a specific release.
+
+</details>
+
+## Quick start
+
+1. **Using Claude Code?** Install its hooks once (other agents need nothing):
+   ```bash
+   agentwatch install
+   ```
+2. **Open a split** next to your agent (Ghostty: `Cmd+D` on macOS, `Ctrl+Shift+O` on Linux; or tmux, iTerm2, WezTerm…) and start your agent in one pane.
+3. **Run agentwatch** in the other pane, from the same project folder:
+   ```bash
+   agentwatch
+   ```
+
+Press **Enter** on the start screen, and the dashboard follows whichever session in that folder is most active. No agent at hand? `agentwatch demo` plays a recorded Claude Code session.
+
+## Supported agents
+
+| Agent | Read from | Setup |
+|---|---|---|
+| **Claude Code** | hooks + transcripts in `~/.claude/projects` | `agentwatch install` |
+| **Codex CLI** | `$CODEX_HOME/sessions/**/rollout-*.jsonl` (default `~/.codex`) | none |
+| **Gemini CLI** | `~/.gemini/tmp/<project>/chats/session-*.json` | none |
+| **OpenCode** | `~/.local/share/opencode/storage/` | none |
+| **oh-my-pi** (`omp`) | `~/.omp/agent/sessions/<project>/*.jsonl` (and named profiles) | none |
+| **Anything else** | events sent to [`agentwatch hook --agent <name>`](#other-tools) | your tool's hook config |
+
+What each one shows:
+
+| | Claude Code | Codex | Gemini CLI | OpenCode | omp |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Models, prompts, tools, tokens, model sequence | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Subagents | ✓ | ✓ | – | ✓ | ✓ |
+| Skills | ✓ | ✓ ¹ | ✓ | ✓ | ✓ |
+| Advisor | ✓ | – | – | – | – |
+| Configured, not-yet-called subagents | ✓ | – | – | – | – |
+
+¹ Codex loads skills by reading their `SKILL.md`; agentwatch records that read as a skill use.
+
+Agents without an advisor get an **AGENT** box in its place, showing the agent, model, folder and the file being read.
+
+## Usage
+
+### Views
+
+| Key | View | Shows |
+|:-:|---|---|
+| `1` | **Dashboard** | Lead, advisor (or agent info), skills, model sequence, subagent cards, model usage, session log |
+| `2` | **Model sequence** | Every model step since the session started, in order |
+| `3` | **Log** | Every event: prompts, tool calls, failures, subagent dispatches, advisor calls, compactions |
+| `4` | **Subagents** | All subagents in a table, plus configured ones that are still `ready` |
+
+![The subagents view](docs/images/subagents.png)
+
+### Keys
+
+| Key | Action |
+|---|---|
+| `1`–`4`, `Tab`, `Shift+Tab` | Switch view |
+| `]` / `[` (or `n` / `p`) | Next / previous session |
+| `f` | Follow the most active session again |
+| `j` `k`, `↓` `↑`, mouse wheel | Scroll |
+| `PgUp` `PgDn`, `g` `G` | Scroll by page, to top / bottom |
+| `q`, `Ctrl+C` | Quit |
+
+### Commands
+
+| Command | What it does |
+|---|---|
+| `agentwatch` | Open the dashboard (same as `agentwatch watch`) |
+| `agentwatch install` | Install the Claude Code hooks and skill rules (`--statusline`, `--no-rules`) |
+| `agentwatch uninstall` | Remove the hooks, status line and skill rules |
+| `agentwatch update` | Update to the latest release (`--check`, `--force`, `--source`) |
+| `agentwatch version` | Show the version and the commit it was built from |
+| `agentwatch demo` | Play a recorded session, no agent needed |
+| `agentwatch rules` | Install, show (`--show`) or remove (`--remove`) only the skill rules |
+| `agentwatch hook --agent <name>` | Receive events from another tool on stdin |
+
+### Options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--all` | off | Show sessions from every folder |
+| `--dir <path>` | current folder | Only show sessions in this folder and its subfolders |
+| `--agent <names>` | all | Only these agents: `claude`, `codex`, `gemini`, `opencode`, `omp`, or a hook name (comma-separated) |
+| `--session <id>` | – | Pin one session (an id prefix is enough); disables the folder filter |
+| `--window <dur>` | `24h` | How far back to load Codex, Gemini, OpenCode and omp sessions |
+| `--recent <dur>` | – | Also show Claude Code transcripts active within this time, even without hooks |
+| `--advisor <model>` | – | Advisor label when it can't be read from settings, globally or per session (`<id>=<model>`) |
+| `--no-splash` | off | Skip the start screen |
+
+### Environment variables
+
+| Variable | Description |
+|---|---|
+| `AGENTWATCH_NO_SPLASH=1` | Skip the start screen |
+| `AGENTWATCH_DIR` | Where Claude Code hook events are stored (default `~/.claude/agentwatch`) |
+| `CLAUDE_CONFIG_DIR` | Claude Code's config folder (default `~/.claude`) |
+| `CODEX_HOME` | Codex home (default `~/.codex`) |
+| `AGENTWATCH_GEMINI_DIR` | Gemini CLI home (default `~/.gemini`) |
+| `AGENTWATCH_OPENCODE_DIR` | OpenCode data folder (default `$XDG_DATA_HOME/opencode` or `~/.local/share/opencode`) |
+| `AGENTWATCH_OMP_DIR` | omp home (default `~/.omp`) |
+| `AGENTWATCH_SRC` | Clone used by `agentwatch update --source` |
+
+## Claude Code integration
+
+`agentwatch install` adds agentwatch's hooks to `~/.claude/settings.json`. Your existing hooks and settings are kept, and a backup is made whenever the file actually changes. Start a new Claude Code session afterwards so the hooks take effect. `agentwatch uninstall` removes everything again.
+
+- **Status line** (`--statusline`): shows the lead and advisor models under the Claude Code prompt. It is only installed if you don't already have a status line.
+- **Skill rules:** `install` also adds a short block to `~/.claude/CLAUDE.md`, which Claude Code loads in every project. It asks Claude to actually invoke skills through the Skill tool and to report only the skills it invoked, so what Claude says matches the SKILLS box. Skip it with `--no-rules`, or manage it with `agentwatch rules`.
+
+<details>
+<summary>Advisor labels</summary>
+
+The advisor's model is read from the transcript once the advisor has been called, otherwise from `advisorModel` in Claude Code's settings. If you start Claude with `claude --advisor opus` (a flag, not a setting), tell agentwatch:
+
 ```bash
-agentwatch update            # download the latest release and replace this binary
-agentwatch update --check    # only check whether a newer version exists
-agentwatch version           # version + the git commit it was built from
-```
-- `update` downloads the latest release from GitHub, verifies its checksum, and swaps the binary in place (same path, so installed hooks keep working). Restart open dashboards to use the new version.
-- `--force` reinstalls even when already up to date.
-- Building from source instead (needs **git** and **Go**): `--source` builds the latest `main`, `--branch <name>` another branch, `--src <folder>` your own checkout (fast-forwarded when it tracks a remote, then built as it is, including uncommitted changes). Source builds use a clone in your cache folder (`~/Library/Caches/agentwatch/src` on macOS, `~/.cache/agentwatch/src` on Linux; `AGENTWATCH_SRC` overrides).
-- Builds from source report their version as `dev`, so `update` always offers the latest release to them.
-
-### Releasing (maintainers)
-Push a version tag and GitHub Actions builds the binaries for macOS and Linux (amd64/arm64) with [GoReleaser](https://goreleaser.com) and publishes them as a GitHub Release with `checksums.txt`:
-```bash
-git tag v0.2.0 && git push origin v0.2.0
+agentwatch --advisor opus                              # every session
+agentwatch --advisor 7f3c=opus --advisor 9c1b=sonnet   # per session (id prefix, repeatable or comma-separated)
+agentwatch --session 7f3c --advisor opus               # pin a session and label only that one
 ```
 
-### Install the hooks (Claude Code only)
-Codex, Gemini CLI, OpenCode and omp need no install: just run `agentwatch`.
-```bash
-agentwatch install --statusline
-```
-- Adds the agentwatch hooks to `~/.claude/settings.json` **without removing** existing hooks/settings, and creates a `settings.json.agentwatch-backup-*` backup.
-- `--statusline` is only installed if you don't already have a `statusLine`.
-- To remove: `agentwatch uninstall`.
-- If you move the binary, run `agentwatch install` again so the path gets updated.
+Priority: the transcript, then a per-session label (longest prefix wins), then the global label, then `advisorModel` from `~/.claude/settings.json`, `<project>/.claude/settings.json` and `<project>/.claude/settings.local.json`.
 
-### Skill rules (applied to every project)
-`agentwatch install` also adds a short rules block to `~/.claude/CLAUDE.md`, the user-level memory Claude Code loads in **every project**. It asks Claude to actually invoke skills through the `Skill` tool (not just mention them by name) and to report only the skills it actually invoked in that task. That way what Claude claims matches what the SKILLS box shows, without editing `AGENTS.md`/`CLAUDE.md` in each project.
+</details>
+
+## Other tools
+
+Any tool that can run a command on an event can feed the dashboard. Send one JSON object per event on stdin, using Claude Code's hook field names:
 
 ```bash
-agentwatch rules            # install/update the rules only (no hooks)
-agentwatch rules --show     # print the rules without writing anything
-agentwatch rules --remove   # remove the rules
-agentwatch install --no-rules   # install hooks without the rules
+echo '{"session_id":"s1","cwd":"'"$PWD"'","hook_event_name":"UserPromptSubmit","prompt":"add tests","model":"gpt-5"}' \
+  | agentwatch hook --agent aider
 ```
-- The block is wrapped in `<!-- agentwatch:skills:start -->` … `<!-- agentwatch:skills:end -->`; the rest of `CLAUDE.md` is left untouched, and a `CLAUDE.md.agentwatch-backup-*` backup is made whenever an existing file changes.
-- `agentwatch uninstall` removes this block too.
-- These are still instructions, not enforcement: Claude sometimes skips them. To be sure a skill runs, call it directly with a slash command (e.g. `/impeccable polish …`).
 
-### Upgrading from ccwatch
-agentwatch used to be called **ccwatch**. To move over, update once and reinstall:
+| `hook_event_name` | Fields |
+|---|---|
+| `SessionStart`, `SessionEnd` | `model`, `cwd` |
+| `UserPromptSubmit` | `prompt` |
+| `PreToolUse`, `PostToolUse`, `PostToolUseFailure` | `tool_name`, `tool_input`, `error` |
+| `Message` | one model reply: `model`, `input_tokens`, `output_tokens`, `cache_read_tokens` |
+| `Stop` | the turn finished |
+| `SubagentStart`, `SubagentStop` | `agent_id`, `agent_type` |
+
+Every event needs a `session_id`, and `cwd` is used for the folder filter. Gemini-style names (`BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `PreCompress`) are accepted too. Use your own agent name: Codex, Gemini, OpenCode and omp are already read from their files.
+
+## How it works
+
+- **Claude Code:** its hooks call `agentwatch hook`, which appends a slimmed-down copy of each event to `events.jsonl` (it never writes to stdout and always exits 0, so it can't get in Claude's way). The dashboard also tails the session and subagent transcripts, which hold the model of every message, the token counts and the advisor calls.
+- **Codex and omp:** their session logs are append-only JSONL, so agentwatch tails them line by line, subagent threads and workers included.
+- **Gemini CLI and OpenCode:** they rewrite JSON files, so a session is rebuilt whenever one of its files changes.
+- Sessions from all agents end up in one list, filtered by folder and sorted by activity. A session still marked as working whose files have been quiet for 5 minutes is shown as idle.
+
+<details>
+<summary>Skills, in detail</summary>
+
+Skills are recorded from Skill tool calls (lead and subagents) and from slash commands you type (`/name args`, except built-ins like `/clear` or `/model`). The first word after the name is read as a subcommand: `/impeccable layout page` shows as `impeccable layout`.
+
+Skills the lead invoked in earlier prompts are listed as **still in context**, because their instructions stay in the lead's context for the rest of the session (Claude Code even re-attaches them after a compaction). Skills invoked by a subagent only live in that subagent, so they appear as **subagent history**. "In context" means the instructions are available, not that they were followed in this prompt; only the skills at the top were invoked in the current one.
+
+</details>
+
+## Updating
 
 ```bash
-ccwatch update        # builds the latest version (now agentwatch)
-agentwatch install    # or `ccwatch install`: both run the same binary now
-```
-- The first `install` or `update` from the new version renames `~/.local/bin/ccwatch` to `agentwatch` and leaves `ccwatch` as a symlink, so old scripts and muscle memory keep working.
-- `install` repoints the existing `ccwatch hook` / `ccwatch statusline` entries in `~/.claude/settings.json` to `agentwatch` (no duplicates), and swaps the `<!-- ccwatch:skills -->` block in `~/.claude/CLAUDE.md` for the agentwatch one. `uninstall` removes both old and new entries.
-- Events now go to `~/.claude/agentwatch/events.jsonl`. Claude sessions that are still running with the old hooks keep writing to `~/.claude/ccwatch/events.jsonl`, which the dashboard still reads, so nothing disappears mid-session.
-- The old `CCWATCH_*` environment variables still work; `AGENTWATCH_*` takes precedence.
-- Once nothing uses the old name, you can remove the symlink: `rm ~/.local/bin/ccwatch`.
-
-## Using it in Ghostty
-
-1. Open a split: **macOS** `Cmd+D` (right) / `Cmd+Shift+D` (down), **Linux** `Ctrl+Shift+O` (right) / `Ctrl+Shift+E` (down).
-2. Left pane: your agent, e.g. `claude --model sonnet --advisor opus`, `codex`, `gemini`, `opencode` or `omp`
-3. Right pane: `agentwatch`
-
-By default the dashboard **only shows agent sessions (Claude Code, Codex, Gemini, OpenCode, omp, …) in the folder where `agentwatch` was started** (including its subfolders), and automatically follows whichever of them was most recently active. Example: `cd ~/Works/personal/pos && agentwatch` → only sessions opened in `pos`, `pos/frontend`, `pos/backend`, etc. Ideal width is ≥ 110 columns (advisor on the left). In narrow panes the layout stacks automatically.
-
-Try it without any agent: `agentwatch demo` (a live Claude Code session plus a finished Codex session; press `]` to switch).
-
-### Watch options
-```bash
-agentwatch                        # only sessions in the current folder (+ subfolders)
-agentwatch --all                  # sessions from all folders
-agentwatch --dir ~/Works/personal/pos   # only sessions in a specific folder, wherever agentwatch is run from
-agentwatch --session 7f3c9a21     # pin to a specific session (id prefix), no folder filter
-agentwatch --advisor opus         # advisor label when it was set via the --advisor flag (not saved in settings)
-agentwatch --recent 30m           # also show sessions active in the last 30 minutes, even without hooks installed
-agentwatch --agent omp            # only omp sessions (claude, codex, gemini, opencode, omp, or a hook --agent name; comma-separated)
-agentwatch --window 72h           # load Codex/Gemini/OpenCode/omp sessions from the last 72 hours (default 24h)
-agentwatch --no-splash         # skip the startup animation (or set AGENTWATCH_NO_SPLASH=1)
+agentwatch update           # download the latest release, verify it, replace the binary in place
+agentwatch update --check   # only check
 ```
 
-### Per-session advisor labels
-`--advisor opus` applies to **all** sessions. If each session uses a different advisor, label them by session id (an id prefix is fine):
+The binary keeps its path, so installed hooks keep working; restart open dashboards to use the new version. `--source` builds the latest `main` instead (needs git and Go), `--branch <name>` another branch, and `--src <folder>` your own checkout.
+
+<details>
+<summary>Upgrading from ccwatch</summary>
+
+agentwatch used to be called **ccwatch**. Run `ccwatch update` once, then `agentwatch install`. The first run renames the binary to `agentwatch` (leaving `ccwatch` as a symlink), repoints the existing hooks and status line, and swaps the old skill-rules block for the new one. Old `CCWATCH_*` environment variables still work, and events from Claude sessions still running on the old hooks are still read.
+
+</details>
+
+## Limitations
+
+- **Session formats aren't official APIs.** Claude Code transcripts and the session files of Codex, Gemini CLI, OpenCode and omp can change between versions. If an agent's numbers go blank after an update, its format most likely changed; the other agents keep working.
+- **Verified against real sessions:** Claude Code and omp. Codex, Gemini CLI and OpenCode are built from their published formats and tested with sample files.
+- **Gemini CLI:** older versions name project folders by a hash of the path, which agentwatch can only match against the folder it runs in (use `--all` to see the rest). Antigravity's binary format isn't supported.
+- **OpenCode:** only the JSON file storage is read, not a database.
+- **omp:** its advisor isn't shown yet, since its format hasn't been observed.
+- **Configured subagents** (`.claude/agents`) are only available to Claude; it decides when to delegate. If one stays `ready`, ask for it by name.
+
+## Development
 
 ```bash
-agentwatch --advisor 7f3c=opus                          # only session 7f3c…
-agentwatch --advisor 7f3c=opus --advisor 9c1b=sonnet    # several sessions (the flag can be repeated)
-agentwatch --advisor 7f3c=opus,9c1b=sonnet              # same, comma-separated
-agentwatch --advisor opus --advisor 9c1b=sonnet         # opus by default, except session 9c1b… uses sonnet
-agentwatch --session 7f3c --advisor opus                # pin session 7f3c… with an advisor label for that session only
+go vet ./... && go test ./...      # checks
+go run . demo                      # try the dashboard with a recorded session
 ```
-
-Advisor label priority:
-1. The model from `usage.iterations` in the transcript (once the advisor has been called).
-2. Per-session label `--advisor <id>=<model>` (longest matching prefix wins).
-3. Global label `--advisor <model>`. If `--session` is set, this label only applies to that session.
-4. `advisorModel` from settings: `~/.claude/settings.json`, then `<project>/.claude/settings.json`, then `<project>/.claude/settings.local.json` (the last one found wins).
-
-The short session id is shown in the dashboard header (`session 7f3c9a21`) and can be used directly as a prefix. The full id is in the transcript file name `~/.claude/projects/<proj>/<session-id>.jsonl`.
-
-## Honest notes
-
-- **Advisor model**: the model name comes from `usage.iterations` in the transcript when available, otherwise from `advisorModel` in settings. If you use `claude --advisor opus` (a flag, not settings), run `agentwatch --advisor opus` so the label is correct (or `agentwatch --advisor <session-id>=opus` for a single session).
-- The Claude Code transcript format isn't an official API and can change between versions. If some numbers go blank after a Claude Code update, the format most likely changed.
-- Subagents in `.claude/agents` are only *available*; Claude decides when to delegate. If one stays `ready`, ask for it directly, e.g. "use the search agent to find …".
-- Claude Code sometimes sends "ghost" `SubagentStop` events for its internal summarizer (no `agent_type`, no transcript). agentwatch ignores them.
-- Images you may have seen online show a "JEV fork layer" with scores like p=0.81 and so on. That isn't data Claude Code emits, so it isn't shown. Forked subagents still appear as regular subagents, with the type Claude Code reports.
-- `events.jsonl` is rotated automatically once it exceeds 20 MB.
-- **Codex, Gemini CLI and OpenCode** are read from their on-disk formats, which aren't official APIs either. The Codex token, session_meta and turn_context fields were checked against Codex's source; the rest (Gemini chat files, OpenCode storage) was written from memory of those formats. All three are tested only with sample files, not yet with real sessions on this machine. If a field changes, that agent's numbers go blank while the others keep working.
-- Codex reports one token count per model response; agentwatch counts it once even when Codex repeats it. Context Codex injects as a "user" message (`<environment_context>`, AGENTS.md) isn't counted as a prompt.
-- Gemini CLI: older versions name the project folder `sha256(project path)`. agentwatch can only match it against the folder you run it in (or `--dir`); sessions from subfolders show up with `--all`. Newer versions store the path in `.project_root`, which works everywhere.
-- OpenCode: only the JSON file storage is read. If your OpenCode version keeps sessions in a database instead, those sessions won't show.
-- **omp** was checked against real omp sessions on this machine (session header, messages, `model_usage`, `session_init`, `skill-prompt`, subagent files). omp's own side calls (title generation, job captions, completion probes) are shown in MODEL USAGE under their purpose as the role, but not counted in the LEAD tokens. omp's advisor isn't shown yet: its entries haven't appeared in any session here, so the format is unknown. A session whose omp process exited shows as `ended` until you resume it.
-- **Antigravity** (`~/.gemini/antigravity*`) stores conversations in a binary format and isn't supported. Gemini CLI uses `~/.gemini/tmp`.
-- Folders can be overridden: `CODEX_HOME`, `AGENTWATCH_GEMINI_DIR`, `AGENTWATCH_OPENCODE_DIR` (or `XDG_DATA_HOME`), `AGENTWATCH_OMP_DIR`.
-
-## Code layout
-
-`main.go` is only the entry point; the logic lives in `internal/`:
 
 | Package | Responsibility |
 |---|---|
-| `cli` | subcommand dispatch and flag parsing |
-| `config` | file locations (`~/.claude`, `AGENTWATCH_DIR`) and reading `advisorModel` |
-| `hook`, `statusline`, `events` | `agentwatch hook` / `agentwatch statusline` and writing `events.jsonl` |
-| `install` | install/remove hooks, the status line, and skill rules (`settings.json`, `CLAUDE.md`) |
-| `store` | session state from `events.jsonl` + transcripts (models, subagents, skills, advisor); `codex.go`, `gemini.go`, `opencode.go`, `omp.go` read the other agents' session files |
-| `ui`, `theme` | Bubble Tea dashboard and color palette |
-| `demo` | fake session for `agentwatch demo` |
-| `format`, `pathmatch` | text/number formatting helpers and session-folder matching |
+| `internal/cli` | Subcommands and flags |
+| `internal/store` | Session state from hook events and each agent's session files (`codex.go`, `gemini.go`, `opencode.go`, `omp.go`) |
+| `internal/ui`, `internal/theme` | Bubble Tea dashboard, start screen and colors |
+| `internal/install` | Hooks, status line and skill rules in Claude Code's config |
+| `internal/hook`, `internal/events`, `internal/statusline` | `agentwatch hook` / `statusline` and `events.jsonl` |
+| `internal/update` | `agentwatch update` from releases or source |
+| `internal/demo` | The recorded session behind `agentwatch demo` |
 
-Quick check before committing: `go vet ./... && go test ./...`
+**Releases:** push a version tag (`git tag v0.2.0 && git push origin v0.2.0`). GitHub Actions builds macOS and Linux binaries with GoReleaser and publishes them with `checksums.txt`.
+
+## Author
+
+Made by **[Titikkoma.dev](https://github.com/chicken-afk)**. Find me on [GitHub](https://github.com/chicken-afk) and [LinkedIn](https://www.linkedin.com/in/andika-yuda-prasetya-putra-74aa201ba/). Feedback and agent requests are welcome in [issues](https://github.com/chicken-afk/agentwatch/issues).
