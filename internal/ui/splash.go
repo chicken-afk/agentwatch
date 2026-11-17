@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/chicken-afk/agentwatch/internal/theme"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Startup splash: a scan beam sweeps across the "agentwatch" wordmark and reveals it in
@@ -17,19 +19,69 @@ import (
 
 const (
 	splashCredit = "by Titikkoma.dev"
+	linksFade    = 300 * time.Millisecond // the links fade in once the credit is typed
 
 	scanEnd     = 700 * time.Millisecond  // beam has crossed the wordmark
 	rollStart   = 650 * time.Millisecond  // first agent checks in
 	rollStep    = 90 * time.Millisecond   // gap between agents
 	creditStart = 1150 * time.Millisecond // credit starts typing
 	creditChar  = 28 * time.Millisecond   // per character
-	splashTotal = 1900 * time.Millisecond // animation done: the Enter prompt appears
+	splashTotal = 2100 * time.Millisecond // animation done (links faded in): the Enter prompt appears
 	promptFade  = 400 * time.Millisecond  // the prompt fades in over this
 	splashTick  = 33 * time.Millisecond   // ~30 fps while the splash animates
 	splashIdle  = 100 * time.Millisecond  // slower ticks once it only waits for Enter
 
 	enterPrompt = "press enter to open the dashboard"
 )
+
+// splashLinks: the author's profiles, shown under the credit as clickable links.
+var splashLinks = []struct{ label, url string }{
+	{"github", "https://github.com/chicken-afk"},
+	{"linkedin", "https://www.linkedin.com/in/andika-yuda-prasetya-putra-74aa201ba/"},
+}
+
+// linksAt: when the links start to appear (right after the credit has been typed).
+var linksAt = creditStart + time.Duration(len(splashCredit))*creditChar + 80*time.Millisecond
+
+// hyperlink wraps text in an OSC 8 link: clickable in terminals that support it
+// (Ghostty, iTerm2, WezTerm, kitty…), plain text elsewhere.
+func hyperlink(url, text string) string { return ansi.SetHyperlink(url) + text + ansi.ResetHyperlink() }
+
+// shortURL: the URL without scheme, "www." and trailing slash, for display.
+func shortURL(u string) string {
+	u = strings.TrimPrefix(strings.TrimPrefix(u, "https://"), "http://")
+	return strings.TrimSuffix(strings.TrimPrefix(u, "www."), "/")
+}
+
+// links: the profile lines at time t ("" before they appear). Wide layouts show the
+// address next to each label; compact ones only the clickable labels.
+func links(t time.Duration, compact bool) []string {
+	if t < linksAt {
+		if compact {
+			return []string{" "}
+		}
+		return make([]string, len(splashLinks))
+	}
+	k := ease(float64(t-linksAt) / float64(linksFade))
+	label := lipgloss.NewStyle().Foreground(blend(cBorder, theme.ColorDim, k))
+	addr := lipgloss.NewStyle().Foreground(blend(cBorder, cText, k)).Underline(true)
+	if compact {
+		var parts []string
+		for _, l := range splashLinks {
+			parts = append(parts, hyperlink(l.url, addr.Render(l.label)))
+		}
+		return []string{strings.Join(parts, label.Render("   "))}
+	}
+	width := 0
+	for _, l := range splashLinks {
+		width = max(width, len(l.label))
+	}
+	out := make([]string, len(splashLinks))
+	for i, l := range splashLinks {
+		out[i] = label.Render(fmt.Sprintf("%-*s  ", width, l.label)) + hyperlink(l.url, addr.Render(shortURL(l.url)))
+	}
+	return out
+}
 
 // splashAgents: the roll call, in the order of the wordmark gradient.
 var splashAgents = []struct {
@@ -196,12 +248,14 @@ func splashReady(t time.Duration) bool { return t >= splashTotal }
 
 // splashView renders the splash frame at time t since launch, centered in w×h.
 func splashView(w, h int, t time.Duration) string {
-	if w < len(logo[0])+4 || h < 13 {
+	if w < len(logo[0])+4 || h < 16 {
 		return splashCompact(w, h, t)
 	}
 	beam := ease(float64(t)/float64(scanEnd)) * float64(len(logo[0])+3)
 	lines := logoLines(beam)
-	lines = append(lines, "", "", rollCall(t), "", credit(t), "", "", prompt(t))
+	lines = append(lines, "", "", rollCall(t), "", credit(t), "")
+	// the two link lines share a left edge, so they're joined as one left-aligned block
+	lines = append(lines, lipgloss.JoinVertical(lipgloss.Left, links(t, false)...), "", "", prompt(t))
 	block := lipgloss.JoinVertical(lipgloss.Center, lines...)
 	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, block)
 }
@@ -220,7 +274,7 @@ func splashCompact(w, h int, t time.Duration) string {
 			dots = append(dots, lipgloss.NewStyle().Foreground(a.color).Render("●"))
 		}
 	}
-	block := lipgloss.JoinVertical(lipgloss.Center, name.String(), strings.Join(dots, " "), credit(t), "", prompt(t))
+	block := lipgloss.JoinVertical(lipgloss.Center, name.String(), strings.Join(dots, " "), credit(t), links(t, true)[0], "", prompt(t))
 	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, block)
 }
 

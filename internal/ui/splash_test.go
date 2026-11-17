@@ -13,7 +13,7 @@ import (
 )
 
 func TestSplashFrames(t *testing.T) {
-	for _, size := range [][2]int{{120, 40}, {80, 14}, {80, 12}, {40, 8}} {
+	for _, size := range [][2]int{{120, 40}, {80, 18}, {80, 14}, {40, 8}} {
 		w, h := size[0], size[1]
 		for _, at := range []time.Duration{0, 300 * time.Millisecond, scanEnd, creditStart, splashTotal, splashTotal + 3*time.Second} {
 			f := SplashFrame(w, h, at)
@@ -28,7 +28,7 @@ func TestSplashFrames(t *testing.T) {
 		if !strings.Contains(end, splashCredit) || !strings.Contains(end, enterPrompt) {
 			t.Errorf("%dx%d: final frame lacks the credit or the Enter prompt", w, h)
 		}
-		if w >= 80 && h >= 13 { // full layout (smaller sizes get the compact one)
+		if w >= 80 && h >= 16 { // full layout (smaller sizes get the compact one)
 			for _, a := range splashAgents {
 				if !strings.Contains(end, a.name) {
 					t.Errorf("%dx%d: final frame lacks %s", w, h, a.name)
@@ -38,6 +38,24 @@ func TestSplashFrames(t *testing.T) {
 	}
 	if s := ansi.Strip(SplashFrame(120, 40, 0)); strings.Contains(s, splashCredit) || strings.Contains(s, "claude") || strings.Contains(s, enterPrompt) {
 		t.Error("frame 0 should show neither the roll call, the credit nor the prompt yet")
+	}
+	for _, size := range [][2]int{{120, 40}, {40, 8}} {
+		raw := SplashFrame(size[0], size[1], splashTotal+time.Second)
+		for _, l := range splashLinks {
+			if !strings.Contains(raw, "\x1b]8;;"+l.url) {
+				t.Errorf("%dx%d: %s is not a clickable link", size[0], size[1], l.label)
+			}
+			want := l.label
+			if size[0] >= 80 {
+				want = shortURL(l.url)
+			}
+			if !strings.Contains(ansi.Strip(raw), want) {
+				t.Errorf("%dx%d: %q not shown", size[0], size[1], want)
+			}
+		}
+	}
+	if s := ansi.Strip(SplashFrame(120, 40, creditStart)); strings.Contains(s, "github") {
+		t.Error("the links should appear only after the credit is typed")
 	}
 	if s := ansi.Strip(SplashFrame(120, 40, creditStart)); strings.Contains(s, enterPrompt) {
 		t.Error("the prompt should only appear once the animation is done")
