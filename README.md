@@ -24,7 +24,7 @@ It works with **Claude Code, Codex CLI, Gemini CLI, OpenCode and oh-my-pi (omp)*
 | **3 log** | All events: prompts, tool calls, failures, subagent dispatches, advisor, compact |
 | **4 subagents** | Table of every subagent in the session, plus configured subagents that haven't been called yet (status `ready`) |
 
-On launch a short animation (about 2 s) scans the agentwatch logo in the agents' colors while sessions load in the background; any key skips it.
+On launch a short animation (about 2 s) scans the agentwatch logo in the agents' colors while sessions load in the background. It always plays to the end; then press **Enter** to open the dashboard (`q` quits). `--no-splash` or `AGENTWATCH_NO_SPLASH=1` opens the dashboard directly.
 
 Keys: `1-4`/`tab` switch view · `[` `]` switch session · `f` follow the most active session · `j/k`/mouse wheel to scroll · `q` quit.
 

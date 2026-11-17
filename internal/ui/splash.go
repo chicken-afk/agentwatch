@@ -12,7 +12,8 @@ import (
 
 // Startup splash: a scan beam sweeps across the "agentwatch" wordmark and reveals it in
 // the colors of the agents it watches, the agents check in one by one, then the credit
-// types itself in. About 1.9s; any key skips it (--no-splash / AGENTWATCH_NO_SPLASH=1 turns it off).
+// types itself in. The animation always plays to the end; then an Enter prompt appears and
+// only Enter opens the dashboard (--no-splash / AGENTWATCH_NO_SPLASH=1 turns it off).
 
 const (
 	splashCredit = "by Titikkoma.dev"
@@ -22,8 +23,12 @@ const (
 	rollStep    = 90 * time.Millisecond   // gap between agents
 	creditStart = 1150 * time.Millisecond // credit starts typing
 	creditChar  = 28 * time.Millisecond   // per character
-	splashTotal = 1900 * time.Millisecond // then the dashboard opens
-	splashTick  = 33 * time.Millisecond   // ~30 fps while the splash runs
+	splashTotal = 1900 * time.Millisecond // animation done: the Enter prompt appears
+	promptFade  = 400 * time.Millisecond  // the prompt fades in over this
+	splashTick  = 33 * time.Millisecond   // ~30 fps while the splash animates
+	splashIdle  = 100 * time.Millisecond  // slower ticks once it only waits for Enter
+
+	enterPrompt = "press enter to open the dashboard"
 )
 
 // splashAgents: the roll call, in the order of the wordmark gradient.
@@ -171,14 +176,32 @@ func credit(t time.Duration) string {
 	return out + lipgloss.NewStyle().Foreground(gradient(1)).Render(cursor)
 }
 
+// prompt: the Enter prompt once the animation is done. It fades in, then breathes
+// slowly between dim and bright so it reads as waiting for you.
+func prompt(t time.Duration) string {
+	if t < splashTotal {
+		return " "
+	}
+	in := ease(float64(t-splashTotal) / float64(promptFade))
+	phase := float64((t-splashTotal)%(2*time.Second)) / float64(2*time.Second)
+	breath := 0.5 - 0.5*math.Cos(2*math.Pi*phase)
+	st := lipgloss.NewStyle().Foreground(blend(cBorder, cText, in*(0.55+0.45*breath)))
+	key := lipgloss.NewStyle().Foreground(blend(cBorder, gradient(1), in)).Bold(true).Render("enter")
+	before, after, _ := strings.Cut(enterPrompt, "enter")
+	return st.Render(before) + key + st.Render(after)
+}
+
+// splashReady: whether the animation has finished and Enter is accepted.
+func splashReady(t time.Duration) bool { return t >= splashTotal }
+
 // splashView renders the splash frame at time t since launch, centered in w×h.
 func splashView(w, h int, t time.Duration) string {
-	if w < len(logo[0])+4 || h < 10 {
+	if w < len(logo[0])+4 || h < 13 {
 		return splashCompact(w, h, t)
 	}
 	beam := ease(float64(t)/float64(scanEnd)) * float64(len(logo[0])+3)
 	lines := logoLines(beam)
-	lines = append(lines, "", "", rollCall(t), "", credit(t))
+	lines = append(lines, "", "", rollCall(t), "", credit(t), "", "", prompt(t))
 	block := lipgloss.JoinVertical(lipgloss.Center, lines...)
 	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, block)
 }
@@ -197,7 +220,7 @@ func splashCompact(w, h int, t time.Duration) string {
 			dots = append(dots, lipgloss.NewStyle().Foreground(a.color).Render("●"))
 		}
 	}
-	block := lipgloss.JoinVertical(lipgloss.Center, name.String(), strings.Join(dots, " "), credit(t))
+	block := lipgloss.JoinVertical(lipgloss.Center, name.String(), strings.Join(dots, " "), credit(t), "", prompt(t))
 	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, block)
 }
 
