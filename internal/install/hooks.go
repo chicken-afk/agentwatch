@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 )
 
@@ -49,12 +50,26 @@ func readSettings(path string) (map[string]any, []byte, error) {
 	return s, b, nil
 }
 
-func writeSettings(path string, s map[string]any, orig []byte) error {
+// writeSettings writes s to path (with a backup of orig) and reports whether anything changed.
+func writeSettings(path string, s map[string]any, orig []byte) (bool, error) {
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
-		return err
+		return false, err
 	}
-	return writeWithBackup(path, append(b, '\n'), orig)
+	if orig != nil && sameJSON(b, orig) {
+		return false, nil // nothing changed: no rewrite, no backup
+	}
+	return true, writeWithBackup(path, append(b, '\n'), orig)
+}
+
+// sameJSON: whether a and b hold the same JSON value, regardless of key order,
+// spacing or number formatting (so a file Claude Code formatted differently still matches).
+func sameJSON(a, b []byte) bool {
+	var va, vb any
+	if json.Unmarshal(a, &va) != nil || json.Unmarshal(b, &vb) != nil {
+		return false
+	}
+	return reflect.DeepEqual(va, vb)
 }
 
 // isOurs: whether command ends with " <sub>" and points to agentwatch.
@@ -106,8 +121,13 @@ func InstallHooks(path string, withStatusline bool) error {
 		installStatusline(s)
 	}
 
-	if err := writeSettings(path, s, orig); err != nil {
+	changed, err := writeSettings(path, s, orig)
+	if err != nil {
 		return err
+	}
+	if !changed {
+		fmt.Println("agentwatch hooks already up to date in", path)
+		return nil
 	}
 	fmt.Printf("agentwatch hooks installed in %s (%d new events, %d total)\n", path, added, len(hookEvents))
 	fmt.Println("Start a new Claude Code session so the hooks take effect, then run `agentwatch` in a split next to it.")
@@ -189,7 +209,7 @@ func UninstallHooks(path string) error {
 			fmt.Println("agentwatch statusLine removed.")
 		}
 	}
-	if err := writeSettings(path, s, orig); err != nil {
+	if _, err := writeSettings(path, s, orig); err != nil {
 		return err
 	}
 	fmt.Printf("removed %d agentwatch hooks from %s\n", removed, path)

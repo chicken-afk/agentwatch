@@ -1,6 +1,8 @@
 package install
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -35,5 +37,46 @@ func TestIsOursIncludesLegacyName(t *testing.T) {
 	}
 	if isOurs("/u/bin/other hook", "hook") || isOurs("/u/bin/agentwatch statusline", "hook") {
 		t.Error("foreign commands must not match")
+	}
+}
+
+func TestWriteSettingsSkipsUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	// an existing file in a different key order and spacing than agentwatch writes
+	orig := `{"model":"sonnet",   "env":{"B":"2","A":"1"}, "n": 5}`
+	if err := os.WriteFile(path, []byte(orig), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	backups := func() int {
+		m, _ := filepath.Glob(path + ".agentwatch-backup-*")
+		return len(m)
+	}
+	write := func(change func(map[string]any)) {
+		t.Helper()
+		s, b, err := readSettings(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		change(s)
+		if _, err := writeSettings(path, s, b); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	write(func(map[string]any) {})
+	if got, _ := os.ReadFile(path); string(got) != orig || backups() != 0 {
+		t.Fatalf("unchanged settings must not be rewritten or backed up (backups=%d)", backups())
+	}
+	write(func(s map[string]any) { s["hooks"] = map[string]any{"Stop": []any{}} })
+	if backups() != 1 {
+		t.Fatalf("a real change should back up once, got %d", backups())
+	}
+	write(func(map[string]any) {})
+	if backups() != 1 {
+		t.Errorf("writing the same settings again must not add a backup, got %d", backups())
+	}
+	if !sameJSON([]byte(`{"a":1,"b":[1,2]}`), []byte("{\n  \"b\": [1, 2],\n  \"a\": 1.0\n}")) {
+		t.Error("sameJSON should ignore key order and formatting")
 	}
 }
