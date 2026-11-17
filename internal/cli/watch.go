@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chicken-afk/agentwatch/internal/config"
 	"github.com/chicken-afk/agentwatch/internal/pathmatch"
 	"github.com/chicken-afk/agentwatch/internal/store"
 	"github.com/chicken-afk/agentwatch/internal/ui"
@@ -22,6 +23,7 @@ type watchFlags struct {
 	dir      string
 	agents   listFlag
 	window   time.Duration
+	noSplash bool
 }
 
 // listFlag: a repeatable, comma-separated string flag (--agent codex --agent gemini, or --agent codex,gemini).
@@ -47,11 +49,13 @@ func runWatch(args []string) error {
 	fs.BoolVar(&f.all, "all", false, "show sessions from all folders (default: only sessions in the current folder)")
 	fs.StringVar(&f.dir, "dir", "", "only show sessions in this folder (default: current folder)")
 	fs.Var(&f.agents, "agent", "only show sessions from these agents: claude, codex, gemini, opencode, omp, or a name sent via 'agentwatch hook --agent NAME' (repeatable, comma-separated)")
+	fs.BoolVar(&f.noSplash, "no-splash", false, "skip the startup animation (or set AGENTWATCH_NO_SPLASH=1)")
 	fs.DurationVar(&f.window, "window", store.DefaultWindow, "how far back to load Codex/Gemini/OpenCode/omp sessions (they have no hooks)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	return ui.Run(f.options())
+	splash := !f.noSplash && config.Env("NO_SPLASH") == ""
+	return ui.Run(f.options(), splash)
 }
 
 // options converts the flags into store.Options.

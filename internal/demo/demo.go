@@ -57,7 +57,7 @@ func Run(args []string) error {
 		time.Sleep(800 * time.Millisecond)
 		sim.play()
 	}()
-	return ui.Run(opts)
+	return ui.Run(opts, !hasArg(args, "--no-splash"))
 }
 
 // writeCodexDemo writes a short, finished Codex rollout in the demo folder.
@@ -90,6 +90,15 @@ func writeCodexDemo(home string) error {
 	return os.Chtimes(path, end, end)
 }
 
+func hasArg(args []string, name string) bool {
+	for _, a := range args {
+		if a == name {
+			return true
+		}
+	}
+	return false
+}
+
 // argValue: the argument after flag name ("" if absent). Unknown arguments are ignored.
 func argValue(args []string, name string) string {
 	for i, a := range args {
@@ -108,6 +117,7 @@ func setupDemoConfig(tmp string) error {
 	os.Setenv("CODEX_HOME", filepath.Join(tmp, "codex"))
 	os.Setenv("AGENTWATCH_GEMINI_DIR", filepath.Join(tmp, "gemini"))
 	os.Setenv("AGENTWATCH_OPENCODE_DIR", filepath.Join(tmp, "opencode"))
+	os.Setenv("AGENTWATCH_OMP_DIR", filepath.Join(tmp, "omp"))
 	if err := writeCodexDemo(filepath.Join(tmp, "codex")); err != nil {
 		return err
 	}
