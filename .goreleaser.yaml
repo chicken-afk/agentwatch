@@ -1,0 +1,47 @@
+# Builds the release binaries when a version tag (v*) is pushed (see .github/workflows/release.yml).
+# Archive names carry no version, so install.sh can always fetch
+# releases/latest/download/agentwatch_<os>_<arch>.tar.gz.
+version: 2
+
+project_name: agentwatch
+dist: .release # keeps the old, git-ignored dist/ folder untouched
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: agentwatch
+    main: .
+    binary: agentwatch
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/chicken-afk/agentwatch/internal/cli.Version={{ .Version }}
+
+archives:
+  - id: agentwatch
+    formats: [tar.gz]
+    name_template: "agentwatch_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge pull request"
+
+release:
+  footer: |
+    Install or update:
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/chicken-afk/agentwatch/main/install.sh | sh
+    ```

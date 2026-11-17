@@ -25,3 +25,6 @@ vendor/
 .idea/
 *.swp
 .DS_Store
+
+# GoReleaser output
+/.release/
