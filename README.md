@@ -94,6 +94,18 @@ go mod tidy
 go build -o ~/.local/bin/ccwatch .
 ```
 
+### Updating
+```bash
+ccwatch update            # download the latest main from GitHub, build it, replace this binary
+ccwatch update --check    # only check whether a newer version exists
+ccwatch version           # version + the git commit it was built from
+```
+- There are no prebuilt releases, so `update` needs **git** and **Go** on your `PATH`. It keeps its own clone of the repository in your cache folder (`~/Library/Caches/ccwatch/src` on macOS, `~/.cache/ccwatch/src` on Linux; `CCWATCH_SRC` overrides) and resets it to the remote branch every time, so don't edit files there.
+- The binary is replaced in place (the same path `ccwatch` runs from), so installed hooks keep working. Restart open dashboards to use the new version.
+- `--branch <name>` updates to another branch, `--force` rebuilds even when already up to date.
+- `--src <folder>` builds your own checkout instead (e.g. `ccwatch update --src ~/Works/tools/ccwatch`): it fast-forwards the checkout when its branch tracks a remote, then builds it as it is, including uncommitted changes.
+- `ccwatch update` only exists in builds that already have it. If yours says `unknown command: update`, build once by hand (`go build -o ~/.local/bin/ccwatch .`) and use `ccwatch update` from then on.
+
 ### Install the hooks (Claude Code only)
 Codex, Gemini CLI, OpenCode and omp need no install: just run `ccwatch`.
 ```bash
