@@ -39,23 +39,34 @@ func tick(d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
-// nextTick: ~30 fps while the splash plays, the normal pace afterwards.
+// nextTick: ~30 fps while the splash animates, slower while it waits for Enter,
+// then the normal pace.
 func (m *model) nextTick() tea.Cmd {
-	if m.splash {
+	switch {
+	case m.splash && time.Since(m.splashStart) < splashTotal+promptFade:
 		return tick(splashTick)
+	case m.splash:
+		return tick(splashIdle)
 	}
 	return tick(tickEvery)
 }
 
-// splashDone ends the splash once it has played out.
-func (m *model) splashDone(now time.Time) {
-	if m.splash && now.Sub(m.splashStart) >= splashTotal {
-		m.splash = false
+// splashKey handles a key while the splash shows: it can't be skipped, Enter opens the
+// dashboard once the animation is done, q / ctrl+c still quit.
+func (m *model) splashKey(key string) tea.Cmd {
+	switch key {
+	case "ctrl+c", "q":
+		return tea.Quit
+	case "enter":
+		if splashReady(time.Since(m.splashStart)) {
+			m.splash = false
+		}
 	}
+	return nil
 }
 
 // Run opens the live dashboard until the user quits. With splash, the startup
-// animation plays first (any key skips it); sessions load in the background meanwhile.
+// animation plays first and waits for Enter; sessions load in the background meanwhile.
 func Run(o store.Options, splash bool) error {
 	m := &model{st: store.New(o), pinned: o.Session, splash: splash, splashStart: time.Now()}
 	m.st.Refresh()
@@ -84,7 +95,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshedAt = now
 			m.st.Refresh()
 		}
-		m.splashDone(time.Time(msg))
 		m.frame++
 		return m, m.nextTick()
 	case tea.MouseMsg:
@@ -92,9 +102,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.onMouse(msg)
 		}
 	case tea.KeyMsg:
-		if m.splash && msg.String() != "ctrl+c" {
-			m.splash = false // any key skips the animation
-			return m, nil
+		if m.splash {
+			return m, m.splashKey(msg.String())
 		}
 		return m, m.onKey(msg.String())
 	}
