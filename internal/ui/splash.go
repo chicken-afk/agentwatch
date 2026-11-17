@@ -34,8 +34,10 @@ const (
 	enterPrompt = "press enter to open the dashboard"
 )
 
-// splashLinks: the author's profiles, shown under the credit as clickable links.
+// splashLinks: the project's repository and the author's profiles, shown under the
+// credit as clickable links.
 var splashLinks = []struct{ label, url string }{
+	{"repo", "https://github.com/chicken-afk/agentwatch"},
 	{"github", "https://github.com/chicken-afk"},
 	{"linkedin", "https://www.linkedin.com/in/andika-yuda-prasetya-putra-74aa201ba/"},
 }
@@ -248,7 +250,7 @@ func splashReady(t time.Duration) bool { return t >= splashTotal }
 
 // splashView renders the splash frame at time t since launch, centered in w×h.
 func splashView(w, h int, t time.Duration) string {
-	if w < len(logo[0])+4 || h < 16 {
+	if w < len(logo[0])+4 || h < 17 {
 		return splashCompact(w, h, t)
 	}
 	beam := ease(float64(t)/float64(scanEnd)) * float64(len(logo[0])+3)

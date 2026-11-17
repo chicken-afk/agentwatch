@@ -28,7 +28,7 @@ func TestSplashFrames(t *testing.T) {
 		if !strings.Contains(end, splashCredit) || !strings.Contains(end, enterPrompt) {
 			t.Errorf("%dx%d: final frame lacks the credit or the Enter prompt", w, h)
 		}
-		if w >= 80 && h >= 16 { // full layout (smaller sizes get the compact one)
+		if w >= 80 && h >= 17 { // full layout (smaller sizes get the compact one)
 			for _, a := range splashAgents {
 				if !strings.Contains(end, a.name) {
 					t.Errorf("%dx%d: final frame lacks %s", w, h, a.name)
