@@ -90,3 +90,13 @@ func OpenCodeDir() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".local", "share", "opencode")
 }
+
+// OmpDir: oh-my-pi (omp) home (~/.omp, or CCWATCH_OMP_DIR). Sessions live in
+// agent/sessions/<encoded-cwd>/<time>_<id>.jsonl (and profiles/<name>/agent/sessions/…).
+func OmpDir() string {
+	if d := os.Getenv("CCWATCH_OMP_DIR"); d != "" {
+		return d
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".omp")
+}

@@ -64,6 +64,8 @@ func AgentColor(agent string) lipgloss.Color {
 		return Gemini
 	case "opencode":
 		return Haiku
+	case "omp":
+		return Opus
 	}
 	return Other
 }
