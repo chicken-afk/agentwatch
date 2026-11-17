@@ -52,7 +52,7 @@ func slashSkill(prompt string) (name, args string, ok bool) {
 		return "", "", false
 	}
 	name, args, _ = strings.Cut(p[1:], " ")
-	name = strings.TrimSpace(name)
+	name = strings.TrimPrefix(strings.TrimSpace(name), "skill:") // omp: /skill:<name>
 	if name == "" || strings.ContainsAny(name, "/\\") || builtinSlash[name] {
 		return "", "", false
 	}

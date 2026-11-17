@@ -9,7 +9,7 @@ import (
 	"ccwatch/internal/format"
 )
 
-// Polled providers: agents other than Claude Code (Codex, Gemini CLI, OpenCode) are read
+// Polled providers: agents other than Claude Code (Codex, Gemini CLI, OpenCode, omp) are read
 // straight from the session files they write, so they need no hooks or install step.
 // Codex writes append-only JSONL (tailed incrementally); Gemini and OpenCode rewrite JSON
 // files, so their sessions are rebuilt from scratch whenever a file changes.
@@ -39,9 +39,16 @@ func (st *Store) scanProviders(now time.Time) {
 		if st.opts.polls(AgentOpenCode) {
 			st.scanOpenCode(since)
 		}
+		if st.opts.polls(AgentOmp) {
+			st.discoverOmp(since)
+		}
 	}
 	// Codex rollouts are append-only: tail them on every refresh for a live view.
 	for _, s := range st.Sessions {
+		if s.Agent == AgentOmp {
+			st.tailOmp(s, now)
+			continue
+		}
 		if s.Agent != AgentCodex {
 			continue
 		}
@@ -56,6 +63,28 @@ func (st *Store) scanProviders(now time.Time) {
 					if fi, err := os.Stat(a.Transcript); err == nil && now.Sub(fi.ModTime()) > staleWorking {
 						a.Status = "done"
 					}
+				}
+			}
+		}
+	}
+}
+
+// tailOmp reads new lines of an omp session and its subagent runs.
+func (st *Store) tailOmp(s *Session, now time.Time) {
+	if s.Transcript != "" {
+		s.tailWith(s.Transcript, s.ingestOmp)
+		s.settleStale(s.Transcript, now)
+	}
+	for _, a := range s.Agents {
+		if a.Transcript == "" {
+			continue
+		}
+		s.tailWith(a.Transcript, func(l []byte) { s.ingestOmpAgent(a, l) })
+		if a.Status == "running" {
+			if fi, err := os.Stat(a.Transcript); err == nil && now.Sub(fi.ModTime()) > staleWorking {
+				a.Status = "done"
+				if a.End.IsZero() {
+					a.End = a.LastSeen
 				}
 			}
 		}

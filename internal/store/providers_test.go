@@ -18,6 +18,7 @@ func isolate(t *testing.T) string {
 		"CODEX_HOME":           "codex",
 		"CCWATCH_GEMINI_DIR":   "gemini",
 		"CCWATCH_OPENCODE_DIR": "opencode",
+		"CCWATCH_OMP_DIR":      "omp",
 	} {
 		t.Setenv(env, filepath.Join(root, sub))
 	}
@@ -225,5 +226,53 @@ func TestGenericHookAgent(t *testing.T) {
 	}
 	if got := (Options{Agents: []string{"claude"}}); got.wantsAgent("aider") || !got.wantsAgent("") {
 		t.Error("agent filter")
+	}
+}
+
+func TestOmpSession(t *testing.T) {
+	root := isolate(t)
+	dir := filepath.Join(root, "omp", "agent", "sessions", "-work-pos")
+	stem := "2026-11-17T10-00-00-000Z_01a1e3ae-0000-7000-8000-000000000001"
+	write(t, filepath.Join(dir, stem+".jsonl"), `{"type":"title","v":1,"title":"Fix auth","source":"auto","updatedAt":"2026-11-17T10:00:09.000Z","pad":"   "}
+{"type":"session","version":3,"id":"01a1e3ae-0000-7000-8000-000000000001","timestamp":"2026-11-17T10:00:00.000Z","cwd":"/work/pos"}
+{"type":"model_change","id":"a1","parentId":null,"timestamp":"2026-11-17T10:00:00.100Z","model":"anthropic/claude-sonnet-5-5"}
+{"type":"message","id":"a2","parentId":"a1","timestamp":"2026-11-17T10:00:01.000Z","message":{"role":"user","content":[{"type":"text","text":"fix the auth flow"}],"attribution":"user","timestamp":1}}
+{"type":"message","id":"a3","parentId":"a2","timestamp":"2026-11-17T10:00:02.000Z","message":{"role":"user","content":"<reminder>","attribution":"agent","timestamp":2}}
+{"type":"message","id":"a4","parentId":"a3","timestamp":"2026-11-17T10:00:03.000Z","message":{"role":"assistant","model":"claude-sonnet-5-5","provider":"anthropic","stopReason":"toolUse","usage":{"input":100,"output":20,"cacheRead":900,"cacheWrite":50,"totalTokens":1070},"content":[{"type":"toolCall","id":"tc1","name":"read","arguments":{"path":"/home/me/.agents/skills/impeccable/SKILL.md"}},{"type":"toolCall","id":"tc2","name":"bash","arguments":{"command":"ls ~/.agents/skills/tdd/SKILL.md"}},{"type":"toolCall","id":"tc3","name":"task","arguments":{"i":"Scout auth code"}}]}}
+{"type":"message","id":"a5","parentId":"a4","timestamp":"2026-11-17T10:00:04.000Z","message":{"role":"toolResult","toolCallId":"tc2","toolName":"bash","isError":true,"content":[]}}
+{"type":"model_usage","id":"a6","parentId":"a5","timestamp":"2026-11-17T10:00:04.500Z","purpose":"title","provider":"anthropic","model":"claude-haiku-5-5","usage":{"input":30,"output":5,"cacheRead":0,"cacheWrite":0}}
+{"type":"message","id":"a7","parentId":"a6","timestamp":"2026-11-17T10:00:05.000Z","message":{"role":"assistant","model":"claude-sonnet-5-5","stopReason":"stop","usage":{"input":10,"output":5,"cacheRead":100,"cacheWrite":0},"content":[{"type":"text","text":"done"}]}}
+{"type":"custom_message","id":"a8","parentId":"a7","timestamp":"2026-11-17T10:00:06.000Z","customType":"skill-prompt","content":"…","attribution":"user","details":{"name":"impeccable","path":"/x/SKILL.md","prompt":"/skill:impeccable layout the login page"}}
+{"type":"compaction","id":"a9","parentId":"a8","timestamp":"2026-11-17T10:00:07.000Z","summary":"…","tokensBefore":1000}
+`)
+	write(t, filepath.Join(dir, stem, "AuthScout.jsonl"), `{"type":"session","version":3,"id":"sub1","timestamp":"2026-11-17T10:00:03.000Z","cwd":"/work/pos","parentSession":"`+filepath.Join(dir, stem+".jsonl")+`"}
+{"type":"session_init","id":"b1","parentId":null,"timestamp":"2026-11-17T10:00:03.100Z","agent":"scout","task":"Find the auth code","resolvedModel":"google/gemini-3-flash"}
+{"type":"message","id":"b2","parentId":"b1","timestamp":"2026-11-17T10:00:03.500Z","message":{"role":"assistant","model":"gemini-3-flash","stopReason":"toolUse","usage":{"input":40,"output":8,"cacheRead":0,"cacheWrite":0},"content":[{"type":"toolCall","id":"x1","name":"grep","arguments":{"pattern":"auth"}}]}}
+{"type":"custom","id":"b3","parentId":"b2","timestamp":"2026-11-17T10:00:04.000Z","customType":"session_exit","data":{"reason":"done"}}
+`)
+
+	st := New(Options{})
+	st.Refresh()
+	s := only(t, st, AgentOmp)
+	if s.ID != "01a1e3ae-0000-7000-8000-000000000001" || s.Cwd != "/work/pos" || s.Lead != "claude-sonnet-5-5" {
+		t.Errorf("meta: id=%q cwd=%q lead=%q", s.ID, s.Cwd, s.Lead)
+	}
+	// the injected agent message isn't a prompt; the /skill: prompt is
+	if s.Prompts != 2 || s.LastPrompt != "/skill:impeccable layout the login page" || s.Turns != 1 || s.Compacts != 1 {
+		t.Errorf("prompts=%d last=%q turns=%d compacts=%d", s.Prompts, s.LastPrompt, s.Turns, s.Compacts)
+	}
+	if s.MainMsgs != 2 || s.MainUsage.In != 110 || s.MainUsage.CacheR != 1000 || s.MainUsage.CacheW != 50 || s.MainTools != 3 || s.Failures != 1 {
+		t.Errorf("msgs=%d usage=%+v tools=%d failures=%d", s.MainMsgs, s.MainUsage, s.MainTools, s.Failures)
+	}
+	if ms := s.Stats["claude-haiku-5-5"]; ms == nil || ms.Roles["title"] != 1 {
+		t.Error("model_usage side call should be in the stats as role 'title'")
+	}
+	// read of SKILL.md counts, bash ls doesn't; /skill:impeccable layout → impeccable + sub layout
+	if len(s.Skills) != 2 || s.Skills[0].Name != "impeccable" || s.Skills[1].Sub != "layout" {
+		t.Errorf("skills: %+v", s.Skills)
+	}
+	a := s.Agents["AuthScout"]
+	if a == nil || a.Type != "scout" || a.Model() != "gemini-3-flash" || a.Status != "done" || a.Tools != 1 || a.Usage.In != 40 {
+		t.Errorf("subagent: %+v", a)
 	}
 }
