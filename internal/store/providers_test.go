@@ -238,11 +238,12 @@ func TestOmpSession(t *testing.T) {
 {"type":"model_change","id":"a1","parentId":null,"timestamp":"2026-11-17T10:00:00.100Z","model":"anthropic/claude-sonnet-5-5"}
 {"type":"message","id":"a2","parentId":"a1","timestamp":"2026-11-17T10:00:01.000Z","message":{"role":"user","content":[{"type":"text","text":"fix the auth flow"}],"attribution":"user","timestamp":1}}
 {"type":"message","id":"a3","parentId":"a2","timestamp":"2026-11-17T10:00:02.000Z","message":{"role":"user","content":"<reminder>","attribution":"agent","timestamp":2}}
-{"type":"message","id":"a4","parentId":"a3","timestamp":"2026-11-17T10:00:03.000Z","message":{"role":"assistant","model":"claude-sonnet-5-5","provider":"anthropic","stopReason":"toolUse","usage":{"input":100,"output":20,"cacheRead":900,"cacheWrite":50,"totalTokens":1070},"content":[{"type":"toolCall","id":"tc1","name":"read","arguments":{"path":"/home/me/.agents/skills/impeccable/SKILL.md"}},{"type":"toolCall","id":"tc2","name":"bash","arguments":{"command":"ls ~/.agents/skills/tdd/SKILL.md"}},{"type":"toolCall","id":"tc3","name":"task","arguments":{"i":"Scout auth code"}}]}}
+{"type":"message","id":"a4","parentId":"a3","timestamp":"2026-11-17T10:00:03.000Z","message":{"role":"assistant","model":"claude-sonnet-5-5","provider":"anthropic","stopReason":"toolUse","usage":{"input":100,"output":20,"cacheRead":900,"cacheWrite":50,"totalTokens":1070},"content":[{"type":"toolCall","id":"tc1","name":"read","arguments":{"path":"/home/me/.agents/skills/impeccable/SKILL.md"}},{"type":"toolCall","id":"tc2","name":"bash","arguments":{"command":"ls ~/.agents/skills/tdd/SKILL.md"}},{"type":"toolCall","id":"tc3","name":"task","arguments":{"i":"Scout auth code","tasks":[{"name":"AuthScout","agent":"scout","task":"# Target\\nFind the auth code"},{"name":"ApiFix","task":"Fix the API"}]}}]}}
 {"type":"message","id":"a5","parentId":"a4","timestamp":"2026-11-17T10:00:04.000Z","message":{"role":"toolResult","toolCallId":"tc2","toolName":"bash","isError":true,"content":[]}}
 {"type":"model_usage","id":"a6","parentId":"a5","timestamp":"2026-11-17T10:00:04.500Z","purpose":"title","provider":"anthropic","model":"claude-haiku-5-5","usage":{"input":30,"output":5,"cacheRead":0,"cacheWrite":0}}
 {"type":"message","id":"a7","parentId":"a6","timestamp":"2026-11-17T10:00:05.000Z","message":{"role":"assistant","model":"claude-sonnet-5-5","stopReason":"stop","usage":{"input":10,"output":5,"cacheRead":100,"cacheWrite":0},"content":[{"type":"text","text":"done"}]}}
 {"type":"custom_message","id":"a8","parentId":"a7","timestamp":"2026-11-17T10:00:06.000Z","customType":"skill-prompt","content":"…","attribution":"user","details":{"name":"impeccable","path":"/x/SKILL.md","prompt":"/skill:impeccable layout the login page"}}
+{"type":"custom_message","id":"a85","parentId":"a8","timestamp":"2026-11-17T10:00:06.500Z","customType":"async-result","attribution":"agent","details":{"jobs":[{"jobId":"ApiFix","type":"task","durationMs":2500},{"jobId":"bg_1","type":"bash","durationMs":10}]},"content":"<system-notice>\\n<task-result id=\"ApiFix\" agent=\"task\" status=\"completed\" duration=\"2.5s\">"}
 {"type":"compaction","id":"a9","parentId":"a8","timestamp":"2026-11-17T10:00:07.000Z","summary":"…","tokensBefore":1000}
 `)
 	write(t, filepath.Join(dir, stem, "AuthScout.jsonl"), `{"type":"session","version":3,"id":"sub1","timestamp":"2026-11-17T10:00:03.000Z","cwd":"/work/pos","parentSession":"`+filepath.Join(dir, stem+".jsonl")+`"}
@@ -272,7 +273,14 @@ func TestOmpSession(t *testing.T) {
 		t.Errorf("skills: %+v", s.Skills)
 	}
 	a := s.Agents["AuthScout"]
-	if a == nil || a.Type != "scout" || a.Model() != "gemini-3-flash" || a.Status != "done" || a.Tools != 1 || a.Usage.In != 40 {
+	if a == nil || a.Title() != "AuthScout · scout" || a.Desc != "Find the auth code" || a.Model() != "gemini-3-flash" || a.Status != "done" || a.Tools != 1 || a.Usage.In != 40 {
 		t.Errorf("subagent: %+v", a)
+	}
+	if _, ok := s.Agents["bg_1"]; ok || len(s.Agents) != 2 {
+		t.Errorf("background bash jobs aren't subagents: %d agents", len(s.Agents))
+	}
+	// a worker that never got its own file is still known by name from the task call, and done from async-result
+	if b := s.Agents["ApiFix"]; b == nil || b.Title() != "ApiFix · task" || b.Status != "done" || b.Desc != "Fix the API" {
+		t.Errorf("dispatched worker: %+v", b)
 	}
 }
