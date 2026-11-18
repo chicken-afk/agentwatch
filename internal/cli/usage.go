@@ -15,6 +15,7 @@ const usage = `agentwatch — live dashboard for AI coding agents (Claude Code, 
   agentwatch install [--statusline] [--no-rules]   hooks + skill rules in ~/.claude/CLAUDE.md
   agentwatch uninstall                              remove hooks + skill rules
   agentwatch rules [--remove | --show]              skill rules only
+  agentwatch usage [--period 24h]   token usage of all sessions per agent and model (1h, 24h, 7d, 30d; --json)
   agentwatch update [--check]  update to the latest release (--source: build main from source)
   agentwatch version          version + the git commit it was built from
   agentwatch demo             try the dashboard with fake data

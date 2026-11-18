@@ -28,6 +28,7 @@ var commands = map[string]command{
 	"rules":      runRules,
 	"demo":       demo.Run,
 	"update":     runUpdate,
+	"usage":      runUsage,
 	"version":    runVersion,
 	"help":       func([]string) error { fmt.Println(usage); return nil },
 }

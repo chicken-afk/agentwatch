@@ -31,7 +31,8 @@ func PrettyModel(m string) string {
 	}
 	switch {
 	case fam == "":
-		return l
+		// not a Claude family name: keep the id as written ("claude-only" stays "claude-only")
+		return strings.ToLower(strings.TrimSpace(bracketRe.ReplaceAllString(m, "")))
 	case len(ver) == 0:
 		return fam
 	}

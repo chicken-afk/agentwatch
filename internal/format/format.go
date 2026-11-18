@@ -48,6 +48,8 @@ func Dur(d time.Duration) string {
 // Human: 1234 → "1.2k", 2_500_000 → "2.5M".
 func Human(n int64) string {
 	switch {
+	case n >= 1_000_000_000:
+		return fmt.Sprintf("%.2fB", float64(n)/1e9)
 	case n >= 1_000_000:
 		return fmt.Sprintf("%.1fM", float64(n)/1e6)
 	case n >= 10_000:
