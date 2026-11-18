@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var tabNames = [tabCount]string{"1 dashboard", "2 model sequence", "3 log", "4 subagents"}
+var tabNames = [tabCount]string{"1 dashboard", "2 model sequence", "3 log", "4 subagents", "5 usage"}
 
 func (m *model) View() string {
 	w, h := m.w, m.h
@@ -41,6 +41,8 @@ func (m *model) View() string {
 		body = m.logView(s, w, bodyH)
 	case 3:
 		body = m.agentsView(s, w, bodyH)
+	case usageTab:
+		body = m.usageView(s, w, bodyH)
 	}
 	lines := strings.Split(body, "\n")
 	if len(lines) > bodyH {
@@ -172,6 +174,9 @@ func rolesSummary(st *store.ModelStat) string {
 }
 
 func (m *model) footer(w int) string {
-	keys := "1-4/tab view · [ ] switch session · f follow · j/k scroll · q quit"
+	keys := "1-5/tab view · [ ] switch session · f follow · j/k scroll · q quit"
+	if m.tab == usageTab {
+		keys = "1-5/tab view · t period · [ ] switch session · j/k scroll · q quit"
+	}
 	return sDim.Render(fit(keys, w))
 }

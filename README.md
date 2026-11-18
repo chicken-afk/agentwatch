@@ -33,6 +33,7 @@ agentwatch sits in a split next to your agent and shows exactly that, as it happ
 - **Subagents at a glance.** Model, status, duration, tool calls, tokens and task for each one, plus configured agents that haven't been called yet.
 - **Skills in context.** Which skills were invoked in this prompt, by whom, and which are still loaded from earlier prompts.
 - **Token usage per model.** Input, output and cache tokens, and each model's share of the output.
+- **Usage history.** Tokens and messages of all your sessions, per agent and per model, for the last hour, 24 hours, 7 days and 30 days, next to the current session.
 - **One dashboard for every agent.** Claude Code, Codex, Gemini CLI, OpenCode and omp side by side; `[` `]` switches sessions.
 - **Folder-aware.** By default it only shows sessions started in the current folder, and follows the most active one.
 - **Zero setup for most agents.** It reads the session files the agents already write. Only Claude Code needs a one-time hook install.
@@ -122,6 +123,7 @@ Agents without an advisor get an **AGENT** box in its place, showing the agent, 
 | `2` | **Model sequence** | Every model step since the session started, in order |
 | `3` | **Log** | Every event: prompts, tool calls, failures, subagent dispatches, advisor calls, compactions |
 | `4` | **Subagents** | All subagents in a table, plus configured ones that are still `ready` |
+| `5` | **Usage** | Tokens and messages of all sessions per agent and model for the last hour, 24h, 7 days and 30 days, plus the current session; `t` switches the period of the input/output/cache breakdown |
 
 ![The subagents view](docs/images/subagents.png)
 
@@ -129,7 +131,8 @@ Agents without an advisor get an **AGENT** box in its place, showing the agent, 
 
 | Key | Action |
 |---|---|
-| `1`–`4`, `Tab`, `Shift+Tab` | Switch view |
+| `1`–`5`, `Tab`, `Shift+Tab` | Switch view |
+| `t` | Usage view: switch period (last hour, 24h, 7 days, 30 days) |
 | `]` / `[` (or `n` / `p`) | Next / previous session |
 | `f` | Follow the most active session again |
 | `j` `k`, `↓` `↑`, mouse wheel | Scroll |
@@ -143,6 +146,7 @@ Agents without an advisor get an **AGENT** box in its place, showing the agent, 
 | `agentwatch` | Open the dashboard (same as `agentwatch watch`) |
 | `agentwatch install` | Install the Claude Code hooks and skill rules (`--statusline`, `--no-rules`) |
 | `agentwatch uninstall` | Remove the hooks, status line and skill rules |
+| `agentwatch usage` | Token usage of all sessions per agent and model (`--period 1h\|24h\|7d\|30d`, `--agent`, `--json`) |
 | `agentwatch update` | Update to the latest release (`--check`, `--force`, `--source`) |
 | `agentwatch version` | Show the version and the commit it was built from |
 | `agentwatch demo` | Play a recorded session, no agent needed |
@@ -174,6 +178,24 @@ Agents without an advisor get an **AGENT** box in its place, showing the agent, 
 | `AGENTWATCH_OPENCODE_DIR` | OpenCode data folder (default `$XDG_DATA_HOME/opencode` or `~/.local/share/opencode`) |
 | `AGENTWATCH_OMP_DIR` | omp home (default `~/.omp`) |
 | `AGENTWATCH_SRC` | Clone used by `agentwatch update --source` |
+
+## Usage history
+
+`agentwatch usage` (or tab `5` in the dashboard) adds up the tokens of **every session in every folder** from the last 30 days, per agent and per model:
+
+```text
+AGENT / MODEL                   LAST HOUR       LAST 24H    LAST 7 DAYS   LAST 30 DAYS
+claude                         12.4M · 31   279.3M · 770   1.63B · 5.9k    2.97B · 10k
+  ● opus 5.5                   12.3M · 30   276.7M · 694   1.23B · 3.8k   2.56B · 8.3k
+  ● sonnet 5.5                          –      597k · 15  363.8M · 1.3k  366.0M · 1.4k
+omp                                     –       148k · 4      1.2M · 30  290.6M · 4.1k
+```
+
+Each cell is *tokens · messages*. Below it, the chosen period (`--period`, or `t` in the dashboard) is split into input, output, cache read and cache write per model. The dashboard tab also shows the current session as its own column, and `--json` prints everything for scripts.
+
+- Tokens include cache reads and writes. For Claude Code, cache reads usually make up most of the total and are billed far lower than new input, so look at the input and output columns for what actually cost the most.
+- Counted: Claude Code (lead, subagents and advisor calls), Codex, Gemini CLI, OpenCode, omp (including workers and its own side calls such as title generation), and `Message` events from other tools. The first scan reads a month of transcripts (about a second for several hundred MB); after that only new lines are read.
+- These are tokens, not a bill: subscription plans aren't charged per token.
 
 ## Claude Code integration
 

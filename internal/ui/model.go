@@ -10,7 +10,9 @@ import (
 )
 
 const (
-	tabCount     = 4
+	tabCount     = 5
+	usageTab     = 4                      // index of the usage tab
+	usageEvery   = 30 * time.Second       // how often the usage report is rescanned while shown
 	tickEvery    = 100 * time.Millisecond // animation
 	refreshEvery = 300 * time.Millisecond // data reads
 	wheelStep    = 3
@@ -33,6 +35,35 @@ type model struct {
 
 	splash      bool // startup animation still playing
 	splashStart time.Time
+
+	history       *store.History     // usage of all sessions (scanned in the background)
+	usage         *store.UsageReport // latest report; nil until the first scan finishes
+	usageAt       time.Time
+	usageScanning bool
+	usagePeriod   int // period shown in the usage breakdown (index into store.UsagePeriods)
+}
+
+// usageMsg: a finished background usage scan.
+type usageMsg store.UsageReport
+
+// scanUsage rescans every agent's history in the background (the first scan reads a month
+// of transcripts, so it must not block the UI).
+func (m *model) scanUsage() tea.Cmd {
+	if m.usageScanning {
+		return nil
+	}
+	m.usageScanning = true
+	h, agents := m.history, m.st.Options().Agents
+	return func() tea.Msg {
+		now := time.Now()
+		h.Scan(now)
+		return usageMsg(h.Report(now, agents))
+	}
+}
+
+// usageDue: whether the usage tab is open and its report is missing or stale.
+func (m *model) usageDue(now time.Time) bool {
+	return m.tab == usageTab && !m.usageScanning && (m.usage == nil || now.Sub(m.usageAt) >= usageEvery)
 }
 
 func tick(d time.Duration) tea.Cmd {
@@ -68,7 +99,8 @@ func (m *model) splashKey(key string) tea.Cmd {
 // Run opens the live dashboard until the user quits. With splash, the startup
 // animation plays first and waits for Enter; sessions load in the background meanwhile.
 func Run(o store.Options, splash bool) error {
-	m := &model{st: store.New(o), pinned: o.Session, splash: splash, splashStart: time.Now()}
+	m := &model{st: store.New(o), pinned: o.Session, splash: splash, splashStart: time.Now(),
+		history: store.NewHistory(), usagePeriod: 1}
 	m.st.Refresh()
 	_, err := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	return err
@@ -76,8 +108,14 @@ func Run(o store.Options, splash bool) error {
 
 // Snapshot renders one dashboard frame without an interactive terminal (used by `agentwatch demo --snapshot`).
 func Snapshot(o store.Options, w, h, tab int) string {
-	m := &model{st: store.New(o), w: w, h: h, tab: tab, frame: 1}
+	m := &model{st: store.New(o), w: w, h: h, tab: tab, frame: 1, history: store.NewHistory(), usagePeriod: 1}
 	m.st.Refresh()
+	if tab == usageTab {
+		now := time.Now()
+		m.history.Scan(now)
+		rep := m.history.Report(now, o.Agents)
+		m.usage, m.usageAt = &rep, now
+	}
 	return m.View()
 }
 
@@ -96,7 +134,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.st.Refresh()
 		}
 		m.frame++
+		if m.usageDue(time.Time(msg)) {
+			return m, tea.Batch(m.nextTick(), m.scanUsage())
+		}
 		return m, m.nextTick()
+	case usageMsg:
+		rep := store.UsageReport(msg)
+		m.usage, m.usageAt, m.usageScanning = &rep, time.Now(), false
 	case tea.MouseMsg:
 		if !m.splash {
 			m.onMouse(msg)
@@ -126,8 +170,12 @@ func (m *model) onKey(key string) tea.Cmd {
 	switch key {
 	case "q", "ctrl+c":
 		return tea.Quit
-	case "1", "2", "3", "4":
+	case "1", "2", "3", "4", "5":
 		m.setTab(int(key[0] - '1'))
+	case "t":
+		if m.tab == usageTab {
+			m.usagePeriod = (m.usagePeriod + 1) % len(store.UsagePeriods)
+		}
 	case "tab":
 		m.setTab((m.tab + 1) % tabCount)
 	case "shift+tab":
