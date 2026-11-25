@@ -1,4 +1,4 @@
-// Package ui: terminal dashboard (Bubble Tea) for AI coding agent sessions (Claude Code, Codex, Gemini CLI, OpenCode, omp, …).
+// Package ui: terminal dashboard (Bubble Tea) for AI coding agent sessions (Claude Code, Codex, Gemini CLI, Antigravity CLI, OpenCode, omp, …).
 package ui
 
 import (

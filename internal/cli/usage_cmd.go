@@ -32,7 +32,7 @@ func runUsage(args []string) error {
 	fs := flag.NewFlagSet("usage", flag.ExitOnError)
 	period := fs.String("period", "24h", "period for the input/output/cache breakdown: 1h, 24h, 7d or 30d")
 	var agents listFlag
-	fs.Var(&agents, "agent", "only these agents (claude, codex, gemini, opencode, omp, …; comma-separated)")
+	fs.Var(&agents, "agent", "only these agents (claude, codex, gemini, antigravity, opencode, omp, …; comma-separated)")
 	asJSON := fs.Bool("json", false, "print the report as JSON")
 	if err := fs.Parse(args); err != nil {
 		return err

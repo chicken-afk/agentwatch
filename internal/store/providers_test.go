@@ -13,12 +13,13 @@ func isolate(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	for env, sub := range map[string]string{
-		"CLAUDE_CONFIG_DIR":       "claude",
-		"AGENTWATCH_DIR":          "agentwatch",
-		"CODEX_HOME":              "codex",
-		"AGENTWATCH_GEMINI_DIR":   "gemini",
-		"AGENTWATCH_OPENCODE_DIR": "opencode",
-		"AGENTWATCH_OMP_DIR":      "omp",
+		"CLAUDE_CONFIG_DIR":          "claude",
+		"AGENTWATCH_DIR":             "agentwatch",
+		"CODEX_HOME":                 "codex",
+		"AGENTWATCH_GEMINI_DIR":      "gemini",
+		"AGENTWATCH_OPENCODE_DIR":    "opencode",
+		"AGENTWATCH_OMP_DIR":         "omp",
+		"AGENTWATCH_ANTIGRAVITY_DIR": "antigravity",
 	} {
 		t.Setenv(env, filepath.Join(root, sub))
 	}

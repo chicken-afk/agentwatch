@@ -59,7 +59,7 @@ func (m *model) emptyView(w, h int) string {
 		sBold.Render("AGENTWATCH") + sDim.Render(" · live dashboard for AI coding agents"),
 		"",
 		sText.Render("No agent sessions found yet."),
-		sDim.Render("Watching: Claude Code (hooks), Codex, Gemini CLI, OpenCode, omp (session files)."),
+		sDim.Render("Watching: Claude Code (hooks), Codex, Gemini CLI, Antigravity, OpenCode, omp (session files)."),
 		"",
 	}
 	if d := m.st.Options().Dir; d != "" {
@@ -71,7 +71,7 @@ func (m *model) emptyView(w, h int) string {
 	}
 	lines = append(lines,
 		sDim.Render("Claude Code: ")+"agentwatch install"+sDim.Render(", then start ")+"claude",
-		sDim.Render("Codex / Gemini / OpenCode / omp: just start them in this folder."),
+		sDim.Render("Codex / Gemini / Antigravity / OpenCode / omp: just start them in this folder."),
 		sDim.Render("Any other tool: pipe events to ")+"agentwatch hook --agent <name>",
 		"",
 		sDim.Render("Without hooks: ")+"agentwatch --recent 30m"+sDim.Render("  (reads recently active transcripts)"),

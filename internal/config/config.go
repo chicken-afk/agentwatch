@@ -112,3 +112,13 @@ func OmpDir() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".omp")
 }
+
+// AntigravityDir: Antigravity CLI data folder (~/.gemini/antigravity-cli, or AGENTWATCH_ANTIGRAVITY_DIR).
+// Conversations are SQLite databases in conversations/<id>.db; prompts are logged in history.jsonl.
+func AntigravityDir() string {
+	if d := Env("ANTIGRAVITY_DIR"); d != "" {
+		return d
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".gemini", "antigravity-cli")
+}

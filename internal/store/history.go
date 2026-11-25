@@ -15,7 +15,8 @@ import (
 
 // History: token usage of every session of every agent over the last month, read from the
 // same files the dashboard uses (Claude transcripts incl. subagents and advisor calls, Codex
-// rollouts, Gemini chats, OpenCode messages, omp sessions incl. workers and side calls, and
+// rollouts, Gemini chats, OpenCode messages, Antigravity conversations, omp sessions incl.
+// workers and side calls, and
 // generic hook "Message" events). Append-only files are read incrementally, so a refresh
 // only parses what's new. Safe for use from a background goroutine.
 type History struct {
@@ -52,6 +53,7 @@ type histFile struct {
 	seen  map[string]bool // Claude: message ids already counted
 	model string          // Codex: current model
 	total int64           // Codex: last total_tokens (dedupes repeated token_count)
+	agy   *agyConv        // Antigravity: parsed steps, updated incrementally
 }
 
 func NewHistory() *History { return &History{files: map[string]*histFile{}} }
@@ -111,6 +113,46 @@ func (h *History) Scan(now time.Time) {
 	tailAll(globAll(config.EventsPath(), config.LegacyEventsPath()), parseHookUsage)
 	reparse(globAll(filepath.Join(config.GeminiDir(), "tmp", "*", "chats", "session-*.json")), parseGeminiUsage)
 	reparse(globAll(filepath.Join(config.OpenCodeDir(), "storage", "message", "*", "*.json")), parseOpenCodeUsage)
+
+	// Antigravity: SQLite databases whose recent writes live in the -wal file, so the
+	// signature covers both; a changed conversation is re-read whole
+	for _, p := range globAll(filepath.Join(config.AntigravityDir(), "conversations", "*.db")) {
+		var sig fileSig
+		var latest time.Time
+		for _, q := range agyFiles(p) {
+			if fi, err := os.Stat(q); err == nil {
+				sig.add(fi)
+				if fi.ModTime().After(latest) {
+					latest = fi.ModTime()
+				}
+			}
+		}
+		if latest.Before(since) {
+			continue
+		}
+		live[p] = true
+		f := h.file(p)
+		if f.sig == sig {
+			continue
+		}
+		if f.agy == nil {
+			f.agy = &agyConv{models: map[int64]string{}, maxIdx: -1}
+		}
+		if f.agy.update(p) != nil {
+			continue // locked mid-write: retry on the next scan
+		}
+		conv := f.agy
+		f.sig, f.recs = sig, nil
+		for _, st := range conv.steps {
+			if st.hasUse {
+				model := conv.models[st.model]
+				if model == "" {
+					model = "unknown model"
+				}
+				f.add(st.t, AgentAntigravity, model, st.usage)
+			}
+		}
+	}
 
 	for p := range h.files {
 		if !live[p] {

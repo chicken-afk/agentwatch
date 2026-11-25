@@ -27,6 +27,7 @@ type Store struct {
 	lastProviderScan time.Time
 	sigs             map[string]fileSig // rebuilt-provider session key → last seen file signature
 	codexMeta        map[string]codexMetaInfo
+	agy              map[string]*agyConv // Antigravity database → parsed steps (read incrementally)
 }
 
 func New(o Options) *Store {
@@ -37,6 +38,7 @@ func New(o Options) *Store {
 		opts:      o,
 		sigs:      map[string]fileSig{},
 		codexMeta: map[string]codexMetaInfo{},
+		agy:       map[string]*agyConv{},
 	}
 }
 

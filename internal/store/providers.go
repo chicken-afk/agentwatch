@@ -9,7 +9,7 @@ import (
 	"github.com/chicken-afk/agentwatch/internal/format"
 )
 
-// Polled providers: agents other than Claude Code (Codex, Gemini CLI, OpenCode, omp) are read
+// Polled providers: agents other than Claude Code (Codex, Gemini CLI, Antigravity CLI, OpenCode, omp) are read
 // straight from the session files they write, so they need no hooks or install step.
 // Codex writes append-only JSONL (tailed incrementally); Gemini and OpenCode rewrite JSON
 // files, so their sessions are rebuilt from scratch whenever a file changes.
@@ -38,6 +38,9 @@ func (st *Store) scanProviders(now time.Time) {
 		}
 		if st.opts.polls(AgentOpenCode) {
 			st.scanOpenCode(since)
+		}
+		if st.opts.polls(AgentAntigravity) {
+			st.scanAntigravity(since)
 		}
 		if st.opts.polls(AgentOmp) {
 			st.discoverOmp(since)

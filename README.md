@@ -6,7 +6,7 @@
 
 **See which model your AI coding agent is actually using, live.**
 
-A terminal dashboard for Claude Code, Codex CLI, Gemini CLI, OpenCode and oh-my-pi:
+A terminal dashboard for Claude Code, Codex CLI, Gemini CLI, Antigravity CLI, OpenCode and oh-my-pi:
 the lead model, the advisor, every subagent, their skills and their tokens, step by step.
 
 [![Release](https://img.shields.io/github/v/release/chicken-afk/agentwatch?color=B48EF0&label=release)](https://github.com/chicken-afk/agentwatch/releases)
@@ -23,7 +23,7 @@ the lead model, the advisor, every subagent, their skills and their tokens, step
 
 ## Why
 
-Modern coding agents don't run on one model. In a single prompt, Claude Code can hand work to an advisor on a bigger model and to several subagents on smaller ones, and Codex, Gemini CLI, OpenCode and omp all delegate in their own way. The terminal shows none of it: you can't tell which model answered, which subagent ran, or what each step cost.
+Modern coding agents don't run on one model. In a single prompt, Claude Code can hand work to an advisor on a bigger model and to several subagents on smaller ones, and Codex, Gemini CLI, Antigravity, OpenCode and omp all route work in their own way. The terminal shows none of it: you can't tell which model answered, which subagent ran, or what each step cost.
 
 agentwatch sits in a split next to your agent and shows exactly that, as it happens.
 
@@ -34,7 +34,7 @@ agentwatch sits in a split next to your agent and shows exactly that, as it happ
 - **Skills in context.** Which skills were invoked in this prompt, by whom, and which are still loaded from earlier prompts.
 - **Token usage per model.** Input, output and cache tokens, and each model's share of the output.
 - **Usage history.** Tokens and messages of all your sessions, per agent and per model, for the last hour, 24 hours, 7 days and 30 days, next to the current session.
-- **One dashboard for every agent.** Claude Code, Codex, Gemini CLI, OpenCode and omp side by side; `[` `]` switches sessions.
+- **One dashboard for every agent.** Claude Code, Codex, Gemini CLI, Antigravity CLI, OpenCode and omp side by side; `[` `]` switches sessions.
 - **Folder-aware.** By default it only shows sessions started in the current folder, and follows the most active one.
 - **Zero setup for most agents.** It reads the session files the agents already write. Only Claude Code needs a one-time hook install.
 
@@ -95,21 +95,22 @@ Press **Enter** on the start screen, and the dashboard follows whichever session
 | **Claude Code** | hooks + transcripts in `~/.claude/projects` | `agentwatch install` |
 | **Codex CLI** | `$CODEX_HOME/sessions/**/rollout-*.jsonl` (default `~/.codex`) | none |
 | **Gemini CLI** | `~/.gemini/tmp/<project>/chats/session-*.json` | none |
+| **Antigravity CLI** (`agy`) | `~/.gemini/antigravity-cli/conversations/*.db` (SQLite) + `history.jsonl` | none |
 | **OpenCode** | `~/.local/share/opencode/storage/` | none |
 | **oh-my-pi** (`omp`) | `~/.omp/agent/sessions/<project>/*.jsonl` (and named profiles) | none |
 | **Anything else** | events sent to [`agentwatch hook --agent <name>`](#other-tools) | your tool's hook config |
 
 What each one shows:
 
-| | Claude Code | Codex | Gemini CLI | OpenCode | omp |
-|---|:-:|:-:|:-:|:-:|:-:|
-| Models, prompts, tools, tokens, model sequence | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Subagents | ✓ | ✓ | – | ✓ | ✓ |
-| Skills | ✓ | ✓ ¹ | ✓ | ✓ | ✓ |
-| Advisor | ✓ | – | – | – | – |
-| Configured, not-yet-called subagents | ✓ | – | – | – | – |
+| | Claude Code | Codex | Gemini CLI | Antigravity | OpenCode | omp |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| Models, prompts, tools, tokens, model sequence | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Subagents | ✓ | ✓ | – | – | ✓ | ✓ |
+| Skills | ✓ | ✓ ¹ | ✓ | ✓ ¹ | ✓ | ✓ |
+| Advisor | ✓ | – | – | – | – | – |
+| Configured, not-yet-called subagents | ✓ | – | – | – | – | – |
 
-¹ Codex loads skills by reading their `SKILL.md`; agentwatch records that read as a skill use.
+¹ Codex and Antigravity load skills by reading their `SKILL.md`; agentwatch records that read as a skill use.
 
 Agents without an advisor get an **AGENT** box in its place, showing the agent, model, folder and the file being read.
 
@@ -159,9 +160,9 @@ Agents without an advisor get an **AGENT** box in its place, showing the agent, 
 |---|---|---|
 | `--all` | off | Show sessions from every folder |
 | `--dir <path>` | current folder | Only show sessions in this folder and its subfolders |
-| `--agent <names>` | all | Only these agents: `claude`, `codex`, `gemini`, `opencode`, `omp`, or a hook name (comma-separated) |
+| `--agent <names>` | all | Only these agents: `claude`, `codex`, `gemini`, `antigravity`, `opencode`, `omp`, or a hook name (comma-separated) |
 | `--session <id>` | – | Pin one session (an id prefix is enough); disables the folder filter |
-| `--window <dur>` | `24h` | How far back to load Codex, Gemini, OpenCode and omp sessions |
+| `--window <dur>` | `24h` | How far back to load Codex, Gemini, Antigravity, OpenCode and omp sessions |
 | `--recent <dur>` | – | Also show Claude Code transcripts active within this time, even without hooks |
 | `--advisor <model>` | – | Advisor label when it can't be read from settings, globally or per session (`<id>=<model>`) |
 | `--no-splash` | off | Skip the start screen |
@@ -175,6 +176,7 @@ Agents without an advisor get an **AGENT** box in its place, showing the agent, 
 | `CLAUDE_CONFIG_DIR` | Claude Code's config folder (default `~/.claude`) |
 | `CODEX_HOME` | Codex home (default `~/.codex`) |
 | `AGENTWATCH_GEMINI_DIR` | Gemini CLI home (default `~/.gemini`) |
+| `AGENTWATCH_ANTIGRAVITY_DIR` | Antigravity CLI data folder (default `~/.gemini/antigravity-cli`) |
 | `AGENTWATCH_OPENCODE_DIR` | OpenCode data folder (default `$XDG_DATA_HOME/opencode` or `~/.local/share/opencode`) |
 | `AGENTWATCH_OMP_DIR` | omp home (default `~/.omp`) |
 | `AGENTWATCH_SRC` | Clone used by `agentwatch update --source` |
@@ -194,7 +196,7 @@ omp                                     –       148k · 4      1.2M · 30  290
 Each cell is *tokens · messages*. Below it, the chosen period (`--period`, or `t` in the dashboard) is split into input, output, cache read and cache write per model. The dashboard tab also shows the current session as its own column, and `--json` prints everything for scripts.
 
 - Tokens include cache reads and writes. For Claude Code, cache reads usually make up most of the total and are billed far lower than new input, so look at the input and output columns for what actually cost the most.
-- Counted: Claude Code (lead, subagents and advisor calls), Codex, Gemini CLI, OpenCode, omp (including workers and its own side calls such as title generation), and `Message` events from other tools. The first scan reads a month of transcripts (about a second for several hundred MB); after that only new lines are read.
+- Counted: Claude Code (lead, subagents and advisor calls), Codex, Gemini CLI, Antigravity CLI, OpenCode, omp (including workers and its own side calls such as title generation), and `Message` events from other tools. The first scan reads a month of transcripts (about a second for several hundred MB); after that only new lines are read.
 - These are tokens, not a bill: subscription plans aren't charged per token.
 
 ## Claude Code integration
@@ -244,6 +246,7 @@ Every event needs a `session_id`, and `cwd` is used for the folder filter. Gemin
 - **Claude Code:** its hooks call `agentwatch hook`, which appends a slimmed-down copy of each event to `events.jsonl` (it never writes to stdout and always exits 0, so it can't get in Claude's way). The dashboard also tails the session and subagent transcripts, which hold the model of every message, the token counts and the advisor calls.
 - **Codex and omp:** their session logs are append-only JSONL, so agentwatch tails them line by line, subagent threads and workers included.
 - **Gemini CLI and OpenCode:** they rewrite JSON files, so a session is rebuilt whenever one of its files changes.
+- **Antigravity CLI:** each conversation is a SQLite database (read read-only, with a pure-Go driver). New steps are read incrementally; prompt text and the project folder come from `history.jsonl`.
 - Sessions from all agents end up in one list, filtered by folder and sorted by activity. A session still marked as working whose files have been quiet for 5 minutes is shown as idle.
 
 <details>
@@ -274,9 +277,10 @@ agentwatch used to be called **ccwatch**. Run `ccwatch update` once, then `agent
 ## Limitations
 
 - **Session formats aren't official APIs.** Claude Code transcripts and the session files of Codex, Gemini CLI, OpenCode and omp can change between versions. If an agent's numbers go blank after an update, its format most likely changed; the other agents keep working.
-- **Verified against real sessions:** Claude Code and omp. Codex, Gemini CLI and OpenCode are built from their published formats and tested with sample files.
-- **Gemini CLI:** older versions name project folders by a hash of the path, which agentwatch can only match against the folder it runs in (use `--all` to see the rest). Antigravity's binary format isn't supported.
+- **Verified against real sessions:** Claude Code, Antigravity CLI and omp. Codex, Gemini CLI and OpenCode are built from their published formats and tested with sample files.
+- **Gemini CLI:** older versions name project folders by a hash of the path, which agentwatch can only match against the folder it runs in (use `--all` to see the rest). Antigravity CLI is supported (see below), but not the Antigravity desktop app's data.
 - **OpenCode:** only the JSON file storage is read, not a database.
+- **Antigravity CLI:** its conversation data is protobuf without a published schema; the fields agentwatch reads (model, tokens, tools, timestamps) were mapped from real conversations and may change with an Antigravity update. Its subagents aren't shown yet.
 - **omp:** its advisor isn't shown yet, since its format hasn't been observed.
 - **Configured subagents** (`.claude/agents`) are only available to Claude; it decides when to delegate. If one stays `ready`, ask for it by name.
 
